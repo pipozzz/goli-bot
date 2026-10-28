@@ -26,9 +26,10 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.platformio
-          key: pio-${{ runner.os }}-${{ hashFiles('firmware/platformio.ini') }}
+          key: pio-${{ runner.os }}-${{ hashFiles('firmware/platformio.ini', '.github/workflows/firmware.yml') }}
       - name: Install PlatformIO
-        run: pip install platformio
+        # esptool 5.0.0-dev1 from the pinned platform breaks with click >= 8.2
+        run: pip install platformio==6.1.18 click==8.1.7
       - name: Build
         run: pio run -e goli -d firmware
       - name: Assemble the site
