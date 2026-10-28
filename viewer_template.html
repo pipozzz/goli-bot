@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Goli Desk Bot</title>
+<style>
+  :root {
+    --bg: #eef0f8; --panel: rgba(255,255,255,.82); --ink: #2b2d42; --muted: #6b6f86; --line: #d9dcec; --accent: #6c7ae0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #14151f; --panel: rgba(30,32,46,.86); --ink: #eceefa; --muted: #9a9fb8; --line: #34374d; --accent: #8e99f0; }
+  }
+  :root[data-theme="dark"] { --bg: #14151f; --panel: rgba(30,32,46,.86); --ink: #eceefa; --muted: #9a9fb8; --line: #34374d; --accent: #8e99f0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+    font-family: ui-rounded, "Nunito", "Avenir Next", system-ui, sans-serif; overflow: hidden; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  .panel { position: fixed; left: 16px; top: 16px; max-width: min(340px, calc(100% - 32px)); background: var(--panel);
+    backdrop-filter: blur(10px); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; }
+  h1 { font-size: 20px; margin: 0 0 2px; letter-spacing: -.2px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 12px; line-height: 1.4; }
+  label { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); margin: 8px 0; }
+  input[type=range] { flex: 1; accent-color: var(--accent); }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  button { font: inherit; font-size: 13px; border: 1px solid var(--line); background: transparent; color: var(--ink);
+    padding: 6px 10px; border-radius: 999px; cursor: pointer; }
+  button[aria-pressed=true] { background: var(--accent); color: #fff; border-color: var(--accent); }
+  ul { list-style: none; padding: 0; margin: 12px 0 0; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 12.5px; }
+  li { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+  .sw { width: 11px; height: 11px; border-radius: 3px; border: 1px solid rgba(0,0,0,.15); flex: none; }
+  @media (max-width: 520px) { .panel { top: auto; bottom: 16px; } ul { display: none; } }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="panel">
+  <h1>Goli desk bot</h1>
+  <p class="sub">Bambu A1 mini · ~108 × 65 × 150 mm · face: Waveshare ESP32‑S3‑Touch‑AMOLED‑1.75</p>
+  <label>Explode <input id="ex" type="range" min="0" max="1" step="0.01" value="0"></label>
+  <div class="row">
+    <button id="spin" aria-pressed="true">Spin</button>
+    <button id="face" aria-pressed="true">Screen on</button>
+    <button id="xray" aria-pressed="false">X‑ray body</button>
+  </div>
+  <ul id="legend"></ul>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+const DATA = /*__DATA__*/null;
+const NAMES = { body_blue: "Body", backplate_blue: "Back plate", belly_cream: "Belly + card", accents_red: "Cheeks + badge",
+  bezel_navy: "Face bezel", bracket_any: "Display bracket", bell_yellow: "Bell", mug_white: "Mug #4" };
+
+function arr(b64, T) { const s = atob(b64); const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return new T(u.buffer); }
+
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setClearColor(0x000000, 0);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.shadowMap.enabled = true;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(32, 1, 1, 2000);
+camera.position.set(-170, 120, -250);
+const controls = new THREE.OrbitControls(camera, canvas);
+controls.target.set(0, 62, 0); controls.enableDamping = true; controls.autoRotate = true; controls.autoRotateSpeed = 1.2;
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x6a6f90, 0.55));
+const key = new THREE.DirectionalLight(0xffffff, 0.9); key.position.set(-120, 220, -180); key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048); Object.assign(key.shadow.camera, { left: -120, right: 120, top: 120, bottom: -120 });
+scene.add(key);
+const rim = new THREE.DirectionalLight(0xc8d0ff, 0.35); rim.position.set(160, 80, 200); scene.add(rim);
+const floor = new THREE.Mesh(new THREE.CircleGeometry(260, 64), new THREE.ShadowMaterial({ opacity: 0.16 }));
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+
+const legend = document.getElementById('legend');
+const meshes = {};
+for (const [name, p] of Object.entries(DATA.parts)) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(arr(p.v, Float32Array), 3));
+  g.setAttribute('normal', new THREE.BufferAttribute(arr(p.n, Float32Array), 3));
+  g.setIndex(new THREE.BufferAttribute(arr(p.i, Uint32Array), 1));
+  const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: new THREE.Color(p.color).convertSRGBToLinear(), roughness: p.rough, metalness: 0.02 }));
+  m.castShadow = m.receiveShadow = true; m.userData.ex = new THREE.Vector3(...p.ex);
+  scene.add(m); meshes[name] = m;
+  legend.insertAdjacentHTML('beforeend', `<li><span class="sw" style="background:${p.color}"></span>${NAMES[name]}</li>`);
+}
+
+// AMOLED face, drawn live on a canvas
+const fc = document.createElement('canvas'); fc.width = fc.height = 512;
+const ctx = fc.getContext('2d');
+const tex = new THREE.CanvasTexture(fc); tex.encoding = THREE.sRGBEncoding;
+const sg = new THREE.BufferGeometry(), S = DATA.screen;
+sg.setAttribute('position', new THREE.BufferAttribute(arr(S.v, Float32Array), 3));
+sg.setAttribute('uv', new THREE.BufferAttribute(arr(S.uv, Float32Array), 2));
+sg.setIndex(new THREE.BufferAttribute(arr(S.i, Uint32Array), 1));
+const screenMat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide });
+const screen = new THREE.Mesh(sg, screenMat); scene.add(screen);
+screen.userData.ex = meshes.bezel_navy.userData.ex;
+
+function drawFace(t) {
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 512, 512);
+  if (!faceOn) return;
+  const blink = (t % 4.2) > 4.05 ? 0.92 : 0;
+  const look = Math.sin(t * 0.7) * 10, lookY = Math.sin(t * 0.43) * 4;
+  for (const s of [-1, 1]) {
+    const cx = 256 + s * 92, cy = 236;
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, cy, 70, 0, Math.PI * 2); ctx.fillStyle = '#6c7ae0'; ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, 60, 0, Math.PI * 2); ctx.clip();
+    ctx.fillStyle = '#fff'; ctx.fillRect(cx - 60, cy - 60, 120, 120);
+    ctx.beginPath(); ctx.arc(cx + look, cy + 14 + lookY, 30, 0, Math.PI * 2); ctx.fillStyle = '#2b2d42'; ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + look + 9, cy + 4 + lookY, 9, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
+    const lid = -60 + 58 + blink * 60;              // heavy, sleepy lids
+    ctx.fillStyle = '#6c7ae0'; ctx.fillRect(cx - 62, cy - 62, 124, lid + 62);
+    ctx.fillStyle = '#2b2d42'; ctx.fillRect(cx - 62, cy + lid - 6, 124, 10);
+    ctx.restore();
+    ctx.lineWidth = 14; ctx.strokeStyle = '#2b2d42';
+    ctx.beginPath(); ctx.arc(cx, cy, 66, 0, Math.PI * 2); ctx.stroke();
+    ctx.lineCap = 'round'; ctx.lineWidth = 12;
+    ctx.beginPath(); ctx.moveTo(cx - 48 * s - 0, cy - 112 + (s < 0 ? 10 : 0)); ctx.quadraticCurveTo(cx, cy - 128, cx + 48 * s, cy - 112 + (s < 0 ? 0 : 10));
+    ctx.strokeStyle = '#8e99f0'; ctx.stroke();
+  }
+  ctx.lineWidth = 12; ctx.strokeStyle = '#2b2d42';
+  ctx.beginPath(); ctx.moveTo(234, 236); ctx.lineTo(278, 236); ctx.stroke();
+  ctx.strokeStyle = '#8e99f0'; ctx.lineWidth = 9; ctx.beginPath();
+  for (let x = -34; x <= 34; x += 2) ctx.lineTo(256 + x, 372 + 8 * Math.sin(x / 9 + t * 2) - x * 0.12);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(229,72,77,.55)';
+  for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(256 + s * 150, 345, 26, 13, 0, 0, Math.PI * 2); ctx.fill(); }
+}
+
+let faceOn = true;
+const bt = (id, fn) => { const b = document.getElementById(id); b.onclick = () => { const v = b.getAttribute('aria-pressed') !== 'true'; b.setAttribute('aria-pressed', v); fn(v); }; };
+bt('spin', v => controls.autoRotate = v);
+bt('face', v => faceOn = v);
+bt('xray', v => { const m = meshes.body_blue.material; m.transparent = v; m.opacity = v ? 0.28 : 1; m.depthWrite = !v; });
+const ex = document.getElementById('ex');
+
+function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize();
+const clock = new THREE.Clock();
+(function loop() {
+  const t = clock.getElapsedTime(), k = +ex.value;
+  for (const m of [...Object.values(meshes), screen]) m.position.copy(m.userData.ex).multiplyScalar(k);
+  drawFace(t); tex.needsUpdate = true;
+  controls.update(); renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
