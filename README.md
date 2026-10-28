@@ -178,3 +178,14 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 Useful knobs: `S` (overall scale), `FACE_TILT` (how far the face looks up), `K` (body depth),
 `FIT` (clearance for press fits), and the `PCB_NUTS` / `GLASS_R` / `NUT_DEPTH` constants if you use another display.
 The display's mechanical drawing is in `docs/waveshare-amoled-1.75-dimensions.jpg`.
+
+## License
+
+| What | License |
+|---|---|
+| Firmware (`firmware/`), web installer (`web/`), CI and the Python tools | [MIT](LICENSE) |
+| 3D model (`stl/`, `goli_bot.py` and what it generates, `viewer.html`), the Goli character, renders and artwork in `docs/` | [CC BY-NC-SA 4.0](LICENSE-MODEL.txt) |
+| ES8311 codec driver (`firmware/lib/es8311/`) | Apache-2.0, © Espressif Systems |
+
+Print, remix and share Goli for non-commercial use: credit "Goli desk bot by Peter Gonda" with a link to this
+repository and share remixes under the same license. Selling prints or remixes needs written permission.
