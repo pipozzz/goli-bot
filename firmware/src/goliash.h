@@ -2,12 +2,15 @@
 
 #include <stdint.h>
 
+#include "face.h"  // AlertLevel
+
 // Watches Goliash for new notifications (the same list as the bell in the Goliash UI).
 // Wi-Fi and HTTP run in their own task so the face never stutters.
 namespace goliash {
 
 struct Alert {
   uint8_t count;      // new messages since the last poll
+  AlertLevel level;   // the worst of them
   char title[96];     // title of the newest one, folded to ASCII for the built-in font
 };
 

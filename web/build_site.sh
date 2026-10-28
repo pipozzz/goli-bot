@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Assembles the GitHub Pages site (web installer + 3D viewer) into $1 (default: site/).
+# Assembles the GitHub Pages site (web installer, Wi-Fi update manifest, 3D viewer) into $1 (default: site/).
 # Needs a firmware build first: pio run -e goli -d firmware
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -8,8 +8,10 @@ version="${GOLI_VERSION:-$(date -u +%Y.%m.%d)-$(git -C "$root" rev-parse --short
 
 rm -rf "$out" && mkdir -p "$out/firmware" "$out/img"
 cp "$root/web/index.html" "$root/web/manifest.json" "$out/"
-cp "$root/firmware/.pio/build/goli/goli-firmware.bin" "$out/firmware/"
+cp "$root/firmware/.pio/build/goli/goli-firmware.bin" "$out/firmware/"          # merged, for the installer
+cp "$root/firmware/.pio/build/goli/firmware.bin" "$out/firmware/goli-app.bin"   # app only, for Wi-Fi updates
+printf '{"version": "%s", "path": "firmware/goli-app.bin"}\n' "$version" > "$out/ota.json"
 cp "$root/viewer.html" "$out/viewer.html"
-cp "$root"/docs/{hero.jpg,faces.png,setup-screen.png,setup-page.jpg} "$out/img/"
+cp "$root"/docs/{hero.jpg,faces.png,setup-screen.png,setup-page.jpg,selftest.png} "$out/img/"
 sed -i.bak "s/__VERSION__/$version/g" "$out/manifest.json" "$out/index.html" && rm "$out"/*.bak
 echo "site in $out (firmware $version)"

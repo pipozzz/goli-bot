@@ -28,16 +28,24 @@ float env(float t, float attack_s, float decay_s) {
   return (t < attack_s ? t / attack_s : 1.f) * expf(-t / decay_s);
 }
 
-// Fills `out` with samples [n0, n0+len) of the sound; returns false when the sound is over.
-bool render(Sound s, int n0, int len, int16_t *out) {
-  // A brass desk bell: inharmonic partials (hum, prime, tierce, quint, nominal...)
-  static const Partial bell[] = {
+// The desk bell struck at t = 0: inharmonic partials (hum, prime, tierce, quint, nominal...)
+float bell(float t, float f0) {
+  static const Partial partials[] = {
       {0.50f, 0.35f, 1.6f}, {1.00f, 1.00f, 1.1f}, {1.19f, 0.45f, 0.8f}, {1.50f, 0.30f, 0.6f},
       {2.00f, 0.55f, 0.55f}, {2.52f, 0.25f, 0.35f}, {2.74f, 0.20f, 0.3f}, {3.76f, 0.12f, 0.2f},
   };
+  if (t < 0.f) return 0.f;
+  float v = 0.f;
+  for (const auto &p : partials) v += p.amp * env(t, 0.002f, p.decay_s) * sinf(2.f * PI * f0 * p.ratio * t);
+  return v;
+}
+
+// Fills `out` with samples [n0, n0+len) of the sound; returns false when the sound is over.
+bool render(Sound s, int n0, int len, int16_t *out) {
   float dur = 0.f;
   switch (s) {
     case Sound::DING: dur = 1.8f; break;
+    case Sound::ALARM: dur = 2.2f; break;
     case Sound::BOOP: dur = 0.16f; break;
     case Sound::CHIRP: dur = 0.32f; break;
     case Sound::WOBBLE: dur = 0.7f; break;
@@ -53,12 +61,12 @@ bool render(Sound s, int n0, int len, int16_t *out) {
     }
     float v = 0.f;
     switch (s) {
-      case Sound::DING: {
-        const float f0 = 1318.5f;  // E6
-        for (const auto &p : bell) v += p.amp * env(t, 0.002f, p.decay_s) * sinf(2.f * PI * f0 * p.ratio * t);
-        v *= 0.32f;
+      case Sound::DING:
+        v = 0.32f * bell(t, 1318.5f);  // E6
         break;
-      }
+      case Sound::ALARM:  // ding-ding, a tone lower: something is on fire
+        v = 0.26f * (bell(t, 1174.7f) + 0.9f * bell(t - 0.3f, 1174.7f));  // D6
+        break;
       case Sound::BOOP: {  // quick rising "bup"
         const float f = 420.f + 900.f * t / dur;
         v = 0.8f * env(t, 0.004f, 0.06f) * sinf(2.f * PI * f * t);

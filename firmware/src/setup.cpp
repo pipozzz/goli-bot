@@ -7,6 +7,7 @@
 #include <lvgl.h>
 
 #include "config.h"
+#include "improv.h"
 #include "settings.h"
 #include "setup_page.h"
 #include "setup_ui.h"
@@ -46,6 +47,8 @@ void page() {
   html.replace("{{VOL}}", String(s.volume));
   html.replace("{{QFROM}}", String(s.quiet_from));
   html.replace("{{QTO}}", String(s.quiet_to));
+  html.replace("{{OTA}}", s.auto_update ? "checked" : "");
+  html.replace("{{VERSION}}", GOLI_VERSION);
   server.send(200, "text/html; charset=utf-8", html);
 }
 
@@ -80,6 +83,7 @@ void saveForm() {
   s.volume = constrain(server.arg("vol").toInt(), 0, 100);
   s.quiet_from = constrain(server.arg("qfrom").toInt(), 0, 23);
   s.quiet_to = constrain(server.arg("qto").toInt(), 0, 23);
+  s.auto_update = server.hasArg("ota");
   settings::save();
   server.send(200, "text/html; charset=utf-8", kSavedPage);
   ui.showSaved();
@@ -88,6 +92,15 @@ void saveForm() {
 }
 
 // Phones probe these to detect a captive portal; answering with a redirect pops the page up.
+// Improv from the web installer put Goli on the Wi-Fi: finish on his page over the LAN
+String lanUrl() { return "http://" + WiFi.localIP().toString() + "/"; }
+
+void joinedByImprov() {
+  const String url = lanUrl();
+  ui.showOpen(url.c_str(), "Wi-Fi OK! Now open");
+  sound::play(Sound::CHIRP);
+}
+
 void toPortal() {
   server.sendHeader("Location", "http://192.168.4.1/", true);
   server.send(302, "text/plain", "");
@@ -115,6 +128,7 @@ void run() {
 
   ui.begin(lv_scr_act());
   ui.showJoin(ssid, pass);
+  improv::begin(lanUrl, joinedByImprov);
   sound::play(Sound::CHIRP);
   Serial.printf("setup mode: join %s (password %s), open http://192.168.4.1\n", ssid, pass);
 
@@ -127,6 +141,7 @@ void run() {
     last = now;
     dns.processNextRequest();
     server.handleClient();
+    improv::loop();
     if (!joined && WiFi.softAPgetStationNum() > 0) {
       joined = true;
       ui.showOpen("http://192.168.4.1");

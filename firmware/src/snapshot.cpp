@@ -6,6 +6,7 @@
 
 #include "config.h"
 #include "face.h"
+#include "selftest_ui.h"
 #include "setup_ui.h"
 
 uint32_t g_fake_millis = 0;
@@ -61,12 +62,22 @@ int main() {
   face.begin(lv_scr_act());
 
   struct { Mood m; const char *name; bool pet; } shots[] = {
-      {Mood::TIRED, "1_tired", false},     {Mood::HAPPY, "2_happy", false},   {Mood::SURPRISED, "3_surprised", false},
-      {Mood::DIZZY, "4_dizzy", false},     {Mood::WINK, "5_wink", false},     {Mood::TIRED, "6_petting", true},
-      {Mood::DROWSY, "7_drowsy", false},   {Mood::ASLEEP, "8_asleep", false},  {Mood::SURPRISED, "9_goliash", false},
+      {Mood::TIRED, "01_tired", false},      {Mood::HAPPY, "02_happy", false},     {Mood::SURPRISED, "03_surprised", false},
+      {Mood::DIZZY, "04_dizzy", false},      {Mood::WINK, "05_wink", false},       {Mood::TIRED, "06_petting", true},
+      {Mood::DROWSY, "07_drowsy", false},    {Mood::ASLEEP, "08_asleep", false},   {Mood::SURPRISED, "09_goliash", false},
+      {Mood::ALARMED, "10_critical", false}, {Mood::HAPPY, "11_good news", false}, {Mood::TIRED, "12_low battery", false},
   };
   for (auto &s : shots) {
-    if (!strcmp(s.name, "9_goliash")) face.showAlert("prod: payments-api drift detected", 3);
+    if (!strcmp(s.name, "09_goliash")) face.showAlert("staging: payments-api 1.4.2 deployed", 1, AlertLevel::INFO);
+    if (!strcmp(s.name, "10_critical")) face.showAlert("prod: payments-api drift detected", 3, AlertLevel::CRITICAL);
+    if (!strcmp(s.name, "11_good news")) {
+      face.clearAlert();
+      face.showAlert("agent eu-west-1 is back", 1, AlertLevel::GOOD);
+    }
+    if (!strcmp(s.name, "12_low battery")) {
+      face.clearAlert();
+      face.showBattery(12, false);
+    }
     face.setPetting(s.pet);
     face.setMood(s.m);
     run(face, 1200);
@@ -75,6 +86,19 @@ int main() {
     save(s.name);
     printf("saved %s\n", s.name);
   }
+  // Self-test screen
+  SelfTestUi test;
+  test.begin(lv_scr_act(), "v0.1.0");
+  test.setLine(0, "touch: 214, 288", true);
+  test.setLine(1, "tilt: +0.12  -0.03", true);
+  test.setLine(2, "sound: ding #2", true);
+  test.setLine(3, "Wi-Fi: -58 dBm", true);
+  test.setLine(4, "power: no PMU", false);
+  test.setTilt(0.12f, -0.03f);
+  test.setTouch(true, 214, 288);
+  lv_refr_now(nullptr);
+  save("selftest");
+
   // The setup screen replaces the face (its objects are gone, so no more face.update())
   SetupUi setup;
   setup.begin(lv_scr_act());

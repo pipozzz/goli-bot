@@ -7,7 +7,10 @@
 #include <WiFi.h>
 #include <time.h>
 
+#include <algorithm>
+
 #include "config.h"
+#include "ota.h"
 #include "settings.h"
 
 namespace goliash {
@@ -80,6 +83,18 @@ void foldAscii(const char *in, char *out, size_t cap) {
   out[o] = 0;
 }
 
+// What one notification item means for Goli (types from Goliash's notifier)
+AlertLevel levelOf(JsonObjectConst item) {
+  const char *type = item["type"] | "";
+  static const char *critical[] = {"agent_stale", "vulnerability", "security_release", "unexpected_signer",
+                                   "evidence_lost", "error"};
+  for (const char *c : critical)
+    if (!strcmp(type, c)) return AlertLevel::CRITICAL;
+  if (!strcmp(type, "drift_detected")) return item["production"] | false ? AlertLevel::CRITICAL : AlertLevel::INFO;
+  if (!strcmp(type, "agent_back") || !strcmp(type, "drift_resolved")) return AlertLevel::GOOD;
+  return AlertLevel::INFO;
+}
+
 void poll() {
   const Settings &cfg = settings::get();
   NetworkClientSecure tls;
@@ -118,6 +133,8 @@ void poll() {
   JsonDocument filter;
   filter[0]["sent_at"] = true;
   filter[0]["title"] = true;
+  filter[0]["items"][0]["type"] = true;
+  filter[0]["items"][0]["production"] = true;
   JsonDocument doc;
   const DeserializationError err = deserializeJson(doc, http.getStream(), DeserializationOption::Filter(filter));
   http.end();
@@ -132,12 +149,18 @@ void poll() {
   int64_t newest = last_ms;
   int fresh = 0;
   const char *title = nullptr;
+  bool any = false;
+  AlertLevel level = AlertLevel::GOOD;
   for (JsonObject m : doc.as<JsonArray>()) {
     const int64_t t = parseTime(m["sent_at"]);
     if (t > newest) newest = t;
     if (last_ms && t > last_ms) {
       if (!title) title = m["title"] | "";
       fresh++;
+      for (JsonObjectConst item : m["items"].as<JsonArrayConst>()) {
+        level = any ? std::max(level, levelOf(item)) : levelOf(item);
+        any = true;
+      }
     }
   }
   const bool first = last_ms == 0;
@@ -148,6 +171,7 @@ void poll() {
 
   Alert a;
   a.count = fresh > 99 ? 99 : fresh;
+  a.level = any ? level : AlertLevel::INFO;
   foldAscii(title, a.title, sizeof a.title);
   Serial.printf("goliash: %d new, \"%s\"\n", fresh, a.title);
   xQueueSend(alerts, &a, 0);
@@ -161,10 +185,15 @@ void task(void *) {
   configTzTime(GOLI_TZ, "pool.ntp.org", "time.google.com");
   state = Status::CONNECTING;
   const uint32_t started = millis();
+  uint32_t next_ota = OTA_FIRST_CHECK_S * 1000UL;
   for (;;) {
     if (WiFi.status() == WL_CONNECTED) {
       if (settings::hasGoliash()) poll();
       else state = Status::OK;
+      if (int32_t(millis() - next_ota) >= 0) {
+        const bool ok = ota::check();  // restarts Goli when it installs an update
+        next_ota = millis() + (ok ? OTA_EVERY_H * 3600000UL : 3600000UL);
+      }
     } else if (millis() - started > 45000) {
       state = Status::NO_WIFI;
     }

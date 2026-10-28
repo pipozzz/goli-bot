@@ -53,9 +53,9 @@ void SetupUi::showJoin(const char *ssid, const char *pass) {
   lv_label_set_text_fmt(line2_, "password %s", pass);
 }
 
-void SetupUi::showOpen(const char *url) {
+void SetupUi::showOpen(const char *url, const char *title) {
   setQr(url);
-  lv_label_set_text(title_, "Now open");
+  lv_label_set_text(title_, title);
   lv_label_set_text(line1_, url + (strncmp(url, "http://", 7) ? 0 : 7));
   lv_label_set_text(line2_, "(or wait for the popup)");
 }

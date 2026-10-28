@@ -12,6 +12,7 @@ struct Settings {
   String ca;          // optional PEM; empty = don't check the certificate
   int volume = SOUND_VOLUME_DEFAULT;
   int quiet_from = 22, quiet_to = 7;
+  bool auto_update = true;  // install new releases over Wi-Fi
 };
 
 namespace settings {

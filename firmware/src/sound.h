@@ -2,7 +2,7 @@
 
 // Goli's voice: little synthesized sounds through the ES8311 codec and the speaker.
 // Everything is generated on the fly (no audio files); playback runs in its own task.
-enum class Sound { DING, BOOP, CHIRP, WOBBLE, YAWN };
+enum class Sound { DING, ALARM, BOOP, CHIRP, WOBBLE, YAWN };  // ALARM: the bell rung twice, lower
 
 namespace sound {
 

@@ -18,6 +18,7 @@ input,textarea,select{width:100%;margin-top:4px;padding:10px 12px;border:1px sol
 textarea{min-height:90px;font:12px ui-monospace,monospace}
 .row{display:flex;gap:10px}.row label{flex:1}
 input[type=range]{padding:0;accent-color:var(--accent)}
+label.check{display:flex;gap:10px;align-items:center;color:var(--ink)}input[type=checkbox]{width:auto;margin:0;accent-color:var(--accent)}
 small{display:block;color:var(--muted);font-size:12.5px;margin-top:4px}
 code{background:var(--bg);padding:1px 5px;border-radius:5px}
 button{width:100%;padding:13px;border:0;border-radius:12px;background:var(--accent);color:#fff;font:600 17px system-ui;cursor:pointer}
@@ -44,6 +45,8 @@ details{margin:0 0 10px}summary{cursor:pointer;color:var(--muted);font-size:14px
 <div class="row"><label>Quiet from<input name="qfrom" type="number" min="0" max="23" value="{{QFROM}}"></label>
 <label>until<input name="qto" type="number" min="0" max="23" value="{{QTO}}"></label></div>
 <small style="margin:-4px 0 10px">No sounds during these hours; alerts still show on my face.</small>
+<label class="check"><input name="ota" type="checkbox" {{OTA}}>Install new versions of me by myself</label>
+<small style="margin:-4px 0 10px">Once a day from the official releases. I'm {{VERSION}}.</small>
 </fieldset>
 <button>Save</button>
 </form></main>

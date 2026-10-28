@@ -37,6 +37,7 @@ void load() {
   s.volume = prefs.getInt("vol", SOUND_VOLUME_DEFAULT);
   s.quiet_from = prefs.getInt("qfrom", 22);
   s.quiet_to = prefs.getInt("qto", 7);
+  s.auto_update = prefs.getBool("ota", true);
 }
 
 void save() {
@@ -48,6 +49,7 @@ void save() {
   prefs.putInt("vol", s.volume);
   prefs.putInt("qfrom", s.quiet_from);
   prefs.putInt("qto", s.quiet_to);
+  prefs.putBool("ota", s.auto_update);
 }
 
 Settings &get() { return s; }

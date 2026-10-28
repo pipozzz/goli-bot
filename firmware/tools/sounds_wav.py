@@ -13,8 +13,18 @@ def env(t, attack, decay):
     return (t / attack if t < attack else 1.0) * math.exp(-t / decay)
 
 
+def bell(t, f0):
+    if t < 0:
+        return 0.0
+    return sum(a * env(t, 0.002, d) * math.sin(2 * math.pi * f0 * r * t) for r, a, d in BELL)
+
+
 def ding(t, dur):
-    return 0.32 * sum(a * env(t, 0.002, d) * math.sin(2 * math.pi * 1318.5 * r * t) for r, a, d in BELL)
+    return 0.32 * bell(t, 1318.5)
+
+
+def alarm(t, dur):
+    return 0.26 * (bell(t, 1174.7) + 0.9 * bell(t - 0.3, 1174.7))
 
 
 def boop(t, dur):
@@ -36,7 +46,7 @@ def yawn(t, dur):
     return 0.5 * math.sin(math.pi * t / dur) * (math.sin(2 * math.pi * f * t) + 0.3 * math.sin(4 * math.pi * f * t))
 
 
-SOUNDS = {"ding": (ding, 1.8), "boop": (boop, 0.16), "chirp": (chirp, 0.32), "wobble": (wobble, 0.7), "yawn": (yawn, 1.1)}
+SOUNDS = {"ding": (ding, 1.8), "alarm": (alarm, 2.2), "boop": (boop, 0.16), "chirp": (chirp, 0.32), "wobble": (wobble, 0.7), "yawn": (yawn, 1.1)}
 
 out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "docs", "sounds")
 os.makedirs(out, exist_ok=True)

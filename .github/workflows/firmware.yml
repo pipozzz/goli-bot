@@ -1,10 +1,12 @@
 name: Firmware
 
-# Builds the firmware on every push and pull request. On main it also publishes the web installer
-# (web/index.html + the merged image) and the 3D viewer to GitHub Pages.
+# Every push and pull request: build the firmware and render the face snapshots.
+# A tag like v0.2.0: build that version, attach it to a GitHub release and publish the web
+# installer, the Wi-Fi update manifest (ota.json) and the 3D viewer to GitHub Pages.
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 
@@ -13,11 +15,14 @@ permissions:
 
 concurrency:
   group: firmware-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # Release builds carry their tag and update themselves; everything else is "dev"
+      GOLI_VERSION: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'dev' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -29,22 +34,48 @@ jobs:
           key: pio-${{ runner.os }}-${{ hashFiles('firmware/platformio.ini', '.github/workflows/firmware.yml') }}
       - name: Install PlatformIO
         # esptool 5.0.0-dev1 from the pinned platform breaks with click >= 8.2
-        run: pip install platformio==6.1.18 click==8.1.7
+        run: pip install platformio==6.1.18 click==8.1.7 pillow
       - name: Build
         run: pio run -e goli -d firmware
+      - name: Render the faces (host build)
+        working-directory: firmware
+        run: |
+          pio run -e snapshot
+          .pio/build/snapshot/program
+          python tools/sheet.py
       - name: Assemble the site
         run: web/build_site.sh site
       - uses: actions/upload-artifact@v4
         with:
           name: goli-firmware
-          path: site/firmware/goli-firmware.bin
+          path: |
+            site/firmware/*.bin
+            docs/faces.png
+            docs/selftest.png
       - uses: actions/upload-pages-artifact@v3
-        if: github.ref == 'refs/heads/main'
+        if: startsWith(github.ref, 'refs/tags/v')
         with:
           path: site
 
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: goli-firmware
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes \
+            --title "Goli $GITHUB_REF_NAME" site/firmware/goli-firmware.bin site/firmware/goli-app.bin
+
   deploy:
-    if: github.ref == 'refs/heads/main'
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-latest
     permissions:

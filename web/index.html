@@ -68,7 +68,7 @@
     <div class="what">
       <p>For the <strong>Waveshare ESP32-S3-Touch-AMOLED-1.75</strong>. Plug the board into this computer with
         a USB-C data cable, click <em>Install</em> and pick the serial port.</p>
-      <p class="version">Firmware __VERSION__ · built from <a href="https://github.com/pipozzz/goli-bot">main</a></p>
+      <p class="version">Firmware __VERSION__ · <a href="https://github.com/pipozzz/goli-bot/releases/tag/__VERSION__">what's new</a></p>
     </div>
     <esp-web-install-button manifest="manifest.json">
       <button slot="activate" class="btn">Install</button>
@@ -85,6 +85,8 @@
       <li>Connect the board by USB-C. Use a cable that carries data, not a charge-only one.</li>
       <li>Click <strong>Install</strong>, choose the port (<em>USB JTAG/serial debug unit</em> or similar) and
         confirm. It takes about a minute.</li>
+      <li>When it's done, choose <strong>Connect to Wi-Fi</strong> and enter your network. Then open the link
+        it shows to add your Goliash address and token. (No Wi-Fi step? Use the phone setup below.)</li>
       <li>On the first install, let it erase the board. When you update later, don't erase: Goli keeps his
         Wi-Fi and Goliash settings.</li>
       <li>No port shows up, or it fails to connect? Hold <strong>BOOT</strong>, press and release
@@ -92,14 +94,25 @@
     </ol>
   </div>
 
-  <h2>Then set him up from your phone</h2>
+  <h2>Or set him up from your phone</h2>
   <div class="pair">
     <img src="img/setup-screen.png" alt="Goli's screen showing a Wi-Fi QR code and a page QR code">
     <div>
       <p>After installing, Goli opens a Wi-Fi hotspot and shows a QR code. Scan it with your phone camera and
         the setup page opens: pick your Wi-Fi, enter your Goliash address and a viewer token, then tap
         <strong>Save</strong>.</p>
-      <p>To change it later, tap his face 5 times.</p>
+      <p>To change it later, tap his face 5 times. New versions install themselves over Wi-Fi once a
+        day; you can turn that off on the setup page.</p>
+    </div>
+  </div>
+
+  <h2>Check the assembly</h2>
+  <div class="pair">
+    <img src="img/selftest.png" alt="Self-test screen with touch, tilt, sound, Wi-Fi and battery readings">
+    <div>
+      <p>Keep a finger on his face while he starts (about a second) for the self-test: a ring under your
+        finger, a bubble level, a ding on every tap, Wi-Fi signal and battery. Anything red didn't
+        answer. Hold 3 s to leave.</p>
     </div>
   </div>
 

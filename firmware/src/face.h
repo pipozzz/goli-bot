@@ -3,7 +3,11 @@
 #include <lvgl.h>
 
 // Goli's expressions. TIRED is his resting face: heavy lids, worried brows, wavy mouth.
-enum class Mood { TIRED, HAPPY, SURPRISED, DIZZY, DROWSY, ASLEEP, WINK };
+enum class Mood { TIRED, HAPPY, SURPRISED, DIZZY, DROWSY, ASLEEP, WINK, ALARMED };
+
+// How much a Goliash alert matters: an agent came back (GOOD), something changed (INFO),
+// or something is broken or vulnerable (CRITICAL).
+enum class AlertLevel : uint8_t { GOOD, INFO, CRITICAL };
 
 // Goli's animated face, drawn with plain LVGL objects on a 466×466 screen.
 // Call update() every frame; it eases every feature toward the current mood.
@@ -20,10 +24,13 @@ class Face {
   void setTilt(float x, float y) { tilt_x_ = x; tilt_y_ = y; }  // -1..1, from the IMU
   void setPetting(bool on) { petting_ = on; }
 
-  // Goliash: red badge with the number of unseen messages, and the newest title scrolling under the mouth.
-  void showAlert(const char *title, int unseen);
+  // Goliash: a badge with the number of unseen messages (green / blue / red by level, the worst
+  // unseen one wins), and the newest title scrolling under the mouth.
+  void showAlert(const char *title, int unseen, AlertLevel level = AlertLevel::INFO);
   void clearAlert();
   void showStatus(const char *text);  // small grey hint at the bottom; nullptr hides it
+  // Battery icon at the top, beside the badge: shown while charging or when low; percent < 0 hides it.
+  void showBattery(int percent, bool charging);
   int unseen() const { return unseen_; }
 
  private:
@@ -51,8 +58,9 @@ class Face {
   lv_obj_t *root_ = nullptr;
   Eye eyes_[2];
   lv_obj_t *bridge_ = nullptr, *mouth_ = nullptr, *cheeks_[2] = {}, *zzz_ = nullptr;
-  lv_obj_t *badge_ = nullptr, *badge_txt_ = nullptr, *title_ = nullptr, *status_ = nullptr;
+  lv_obj_t *badge_ = nullptr, *badge_txt_ = nullptr, *title_ = nullptr, *status_ = nullptr, *battery_ = nullptr;
   int unseen_ = 0;
+  AlertLevel level_ = AlertLevel::GOOD;
   uint32_t title_until_ = 0;
   lv_point_t mouth_pts_[24];
 

@@ -17,6 +17,7 @@ const uint32_t kFrame = 0x3b4070;   // glasses frame
 const uint32_t kInk = 0x2b2d42;     // pupils, lid line
 const uint32_t kWhite = 0xffffff;
 const uint32_t kCheek = 0xe5484d;
+const uint32_t kGreen = 0x3fb27f;   // good news badge, charging
 
 const int kC = LCD_SIZE / 2;   // screen centre
 const int kEyeDx = 86, kEyeY = 220;
@@ -110,6 +111,11 @@ void Face::begin(lv_obj_t *screen) {
   lv_obj_set_pos(status_, kC - 120, 420);
   lv_obj_add_flag(status_, LV_OBJ_FLAG_HIDDEN);
 
+  battery_ = lv_label_create(root_);
+  lv_obj_set_style_text_font(battery_, &lv_font_montserrat_28, 0);
+  lv_obj_set_pos(battery_, kC + 52, 42);  // top, right of the alert badge
+  lv_obj_add_flag(battery_, LV_OBJ_FLAG_HIDDEN);
+
   targetFor(mood_, tgt_);
   cur_ = tgt_;
   apply(0);
@@ -176,6 +182,9 @@ void Face::targetFor(Mood m, Shape &s) const {
     case Mood::WINK:
       s.lid = 0.1f; s.lid_bottom = 0.3f; s.brow_tilt = -0.2f; s.brow_lift = 6.f; s.mouth = 1.f; s.blush = 0.6f;
       break;
+    case Mood::ALARMED:  // wide eyes, tiny pupils, brows up in a knot, mouth trembling
+      s.lid = 0.f; s.pupil = 0.5f; s.brow_tilt = 2.2f; s.brow_lift = 20.f; s.mouth = -1.7f;
+      break;
   }
   if (petting_) {  // eyes closed in bliss, big blush
     s.lid = 0.25f; s.lid_bottom = 0.55f; s.brow_tilt = 0.f; s.brow_lift = 6.f; s.mouth = 1.f; s.blush = 1.f;
@@ -217,6 +226,9 @@ void Face::update(uint32_t now) {
   if (mood_ == Mood::DIZZY) {
     tx = 16.f * cosf(now / 110.f);
     ty = 16.f * sinf(now / 110.f);
+  } else if (mood_ == Mood::ALARMED) {  // jittery
+    tx = random(-4, 5);
+    ty = random(-3, 4);
   }
   look_x_ = ease(look_x_, constrain(tx, -kLook, kLook), dt, 45.f);
   look_y_ = ease(look_y_, constrain(ty, -kLook, kLook), dt, 45.f);
@@ -290,8 +302,11 @@ void Face::apply(uint32_t now) {
   drawMouth(now);
 }
 
-void Face::showAlert(const char *title, int unseen) {
+void Face::showAlert(const char *title, int unseen, AlertLevel level) {
+  level_ = unseen_ ? std::max(level_, level) : level;  // the worst unseen alert sets the colour
   unseen_ = unseen;
+  static const uint32_t colors[] = {kGreen, kBlue, kCheek};
+  lv_obj_set_style_bg_color(badge_, lv_color_hex(colors[int(level_)]), 0);
   lv_label_set_text_fmt(badge_txt_, unseen > 9 ? "9+" : "%d", unseen);
   lv_obj_clear_flag(badge_, LV_OBJ_FLAG_HIDDEN);
   lv_label_set_text(title_, title);
@@ -301,6 +316,7 @@ void Face::showAlert(const char *title, int unseen) {
 
 void Face::clearAlert() {
   unseen_ = 0;
+  level_ = AlertLevel::GOOD;
   title_until_ = 0;
   lv_obj_add_flag(badge_, LV_OBJ_FLAG_HIDDEN);
   lv_obj_add_flag(title_, LV_OBJ_FLAG_HIDDEN);
@@ -313,6 +329,19 @@ void Face::showStatus(const char *text) {
   }
   if (strcmp(lv_label_get_text(status_), text)) lv_label_set_text(status_, text);
   lv_obj_clear_flag(status_, LV_OBJ_FLAG_HIDDEN);
+}
+
+void Face::showBattery(int percent, bool charging) {
+  if (percent < 0) {
+    lv_obj_add_flag(battery_, LV_OBJ_FLAG_HIDDEN);
+    return;
+  }
+  const char *icon = charging        ? LV_SYMBOL_CHARGE " " LV_SYMBOL_BATTERY_3
+                     : percent < 10  ? LV_SYMBOL_BATTERY_EMPTY
+                                     : LV_SYMBOL_BATTERY_1;
+  if (strcmp(lv_label_get_text(battery_), icon)) lv_label_set_text(battery_, icon);
+  lv_obj_set_style_text_color(battery_, lv_color_hex(charging ? kGreen : kCheek), 0);
+  lv_obj_clear_flag(battery_, LV_OBJ_FLAG_HIDDEN);
 }
 
 void Face::drawMouth(uint32_t now) {

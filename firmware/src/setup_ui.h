@@ -7,7 +7,7 @@ class SetupUi {
  public:
   void begin(lv_obj_t *screen);
   void showJoin(const char *ssid, const char *pass);  // step 1: join the hotspot
-  void showOpen(const char *url);                    // step 2: a phone joined, open the page
+  void showOpen(const char *url, const char *title = "Now open");  // step 2: open the page
   void showSaved();                                  // done, restarting
 
  private:

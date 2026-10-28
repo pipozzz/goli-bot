@@ -28,7 +28,7 @@ About 108 × 65 × 150 mm with the bell on. Every part fits the Bambu Lab A1 min
 | 3× M2×6 self-tapping screws | Bracket → bezel |
 | 3× M2×8 self-tapping screws | Back plate → body |
 | USB-C cable | Goes through the slot in the back plate. A right-angle plug fits best. |
-| Optional: 3.7 V LiPo (~1000 mAh, MX1.25) | Sits in the base. The board's power button is inside the body, so plan for USB power or leave the board on. |
+| Optional: 3.7 V LiPo (~1000 mAh, MX1.25) | Sits in the base. The board's power button is inside the body, so plan for USB power or leave the board on. On battery the screen goes dark after he has slept for 30 min; touch or move him to wake him. |
 
 ## Print
 
@@ -46,10 +46,14 @@ PLA, 0.2 mm layers (0.12 mm for the bell and mug), 3 walls, 15 % gyroid.
 The inside of the body is designed to print without supports: the roof is a 45° cone, and the face socket
 and screw bosses have 45° undersides.
 
-**Multi-colour body (AMS lite):** in Bambu Studio, select the three body files together → *Import* →
-answer **Yes** to "Load these files as a single object with multiple parts". Then give each part its filament.
-The three files share one origin, so they stay registered. With a single colour, just print the body file.
-The belly, card and cheeks stand out in relief either way.
+**Multi-colour body (AMS lite):** open **`stl/goli_body_multicolor.3mf`** in Bambu Studio. It is one object
+with three parts already on filaments 1–3 (blue, cream, red), set up for the A1 mini with 0.20 mm layers,
+3 walls, 15 % gyroid and tree supports from the plate. Map the three filaments to your AMS slots and print:
+about 17 h and 150 / 58 / 13 g of blue / cream / red PLA, purging included.
+With a single colour, just print `goli_body_blue.stl`. The belly, card and cheeks stand out in relief either way.
+
+To rebuild the 3MF after changing the model, run `python3 make_3mf.py`. It uses Bambu Studio's command line,
+so Bambu Studio must be installed.
 
 ## Assembly
 
@@ -72,7 +76,9 @@ GFX Library for Arduino, SensorLib for touch and IMU, Espressif's ES8311 codec d
 | Input | Goli |
 |---|---|
 | nothing happening | tired: heavy lids, worried brows, wavy mouth; blinks and glances around |
-| new Goliash notification | **ding** of a desk bell, surprised face, red count badge, title scrolling under the mouth |
+| new Goliash notification | **ding** of a desk bell, surprised face, count badge, title scrolling under the mouth |
+| something critical (agent gone quiet, vulnerability, production drift...) | **ding-ding**, alarmed face, red badge |
+| good news (an agent is back, a drift was resolved) | chirp, happy face, green badge |
 | tap the face | boop: surprised, then happy with blushing cheeks; also marks alerts as seen |
 | double tap | wink |
 | 5 quick taps | setup mode (QR code on the screen) |
@@ -82,6 +88,8 @@ GFX Library for Arduino, SensorLib for touch and IMU, Espressif's ES8311 codec d
 | bump or pick him up | surprised |
 | 1 min idle → 5 min idle, or lying flat | drowsy → asleep with a yawn (screen dims, "z Z", breathing) |
 | hold a finger still for 3 s | turns the face by 90° (saved): use it once after assembly |
+| finger on the face while he starts | self-test screen (see *Checking the assembly*) |
+| battery low, or charging | battery icon next to the bell |
 
 The whole face drifts by a few pixels over minutes so the AMOLED does not burn in.
 
@@ -94,11 +102,31 @@ board in by USB-C and click **Install**. The page is built by GitHub Actions fro
 2. On the first install, let it erase the board. For updates, don't erase: Goli keeps his settings.
 3. If no port shows up or it can't connect: hold **BOOT**, press and release **RESET**, release BOOT and try
    again. Press RESET once more when it's done.
-4. Then set him up from your phone (below).
+4. Choose **Connect to Wi-Fi** when the installer offers it (Goli speaks [Improv](https://www.improv-wifi.com/)
+   over USB). Then open the link it shows to add your Goliash address and token on Goli's setup page.
+   No Wi-Fi step? Set him up from your phone instead (below).
 
-Safari and phones can't flash (no Web Serial). Every build is also attached to its
-[Actions run](https://github.com/pipozzz/goli-bot/actions/workflows/firmware.yml) as `goli-firmware.bin`, a
-merged image for offset 0x0: `esptool.py --chip esp32s3 write_flash 0x0 goli-firmware.bin`.
+The page always installs the latest [release](https://github.com/pipozzz/goli-bot/releases).
+
+### Updates over Wi-Fi
+
+Once Goli is on your Wi-Fi he updates himself: a few minutes after starting and then once a day he reads
+`ota.json` from the installer site, and if a different release is out he downloads it, says *updating
+myself...* and restarts. The download only comes from a server with a trusted certificate (the roots are in
+`src/ota_roots.h`), and the ESP32 checks the image before it boots it. Turn it off on the setup page.
+Builds you make yourself are versioned `dev` and never update themselves.
+
+Safari and phones can't flash (no Web Serial). Every release also has `goli-firmware.bin`, a merged image for
+offset 0x0: `esptool.py --chip esp32s3 write_flash 0x0 goli-firmware.bin`.
+
+### Checking the assembly
+
+![Self-test screen](docs/selftest.png)
+
+Keep a finger on his face while he starts (about a second) for the self-test. A ring follows your finger, a
+bubble level shows the tilt, every tap rings the bell, and it shows Wi-Fi signal and battery. Red means the
+part didn't answer. Hold 3 s to leave. If the ring isn't under your finger, the touch panel is rotated or
+mirrored against the display.
 
 ### Building it yourself
 
@@ -108,7 +136,11 @@ pio run -t upload        # board in USB-C; hold BOOT while plugging in if upload
 pio device monitor
 ```
 
-The build also writes `.pio/build/goli/goli-firmware.bin` (`tools/merge_bin.py`). To try the installer page
+The build also writes `.pio/build/goli/goli-firmware.bin` (`tools/merge_bin.py`).
+
+**Releasing:** push a tag like `v0.2.0`. GitHub Actions builds that version, creates the release with both
+images, and publishes the installer and `ota.json` to Pages; every Goli on Wi-Fi picks it up within a day.
+Pushes to `main` and pull requests only build and render the faces. To try the installer page
 locally, run `web/build_site.sh` and serve `site/` with `python3 -m http.server -d site`; Web Serial works on
 `localhost`.
 
@@ -124,8 +156,8 @@ pio run -e snapshot && .pio/build/snapshot/program && python3 tools/sheet.py
 ### Sounds
 
 Goli synthesizes all his sounds (no audio files): a brass desk bell for alerts (a few inharmonic partials
-with different decays), plus boop, chirp, wobble and yawn. Hear them in `docs/sounds/`
-(re-render with `python3 firmware/tools/sounds_wav.py`). The speaker amp is only on while a sound plays.
+with different decays), rung twice and a tone lower for critical ones, plus boop, chirp, wobble and yawn.
+Hear them in `docs/sounds/` (re-render with `python3 firmware/tools/sounds_wav.py`). The speaker amp is only on while a sound plays.
 During quiet hours (22:00 to 07:00 by default, set on the setup page) alerts are silent and only the badge appears.
 
 ### Setting Goli up (from a phone or a PC)
