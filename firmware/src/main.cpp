@@ -16,7 +16,9 @@
 #include "TouchDrvCSTXXX.hpp"
 #include "config.h"
 #include "face.h"
+#include "goliash.h"
 #include "motion.h"
+#include "sound.h"
 
 namespace {
 
@@ -114,6 +116,7 @@ void pollTouch(uint32_t now) {
         if (tp.pending_tap && now - tp.pending_tap < 450) {
           tp.pending_tap = 0;
           face.setMood(Mood::WINK, 1300);
+          sound::play(Sound::CHIRP);
         } else {
           tp.pending_tap = now;
         }
@@ -132,6 +135,8 @@ void pollTouch(uint32_t now) {
   if (tp.pending_tap && now - tp.pending_tap > 450) {  // it was a single tap: boop!
     tp.pending_tap = 0;
     face.setMood(Mood::SURPRISED, 450);
+    sound::play(Sound::BOOP);
+    face.clearAlert();  // a boop means "seen"
     happy_after = now + 450;
   }
 }
@@ -147,6 +152,7 @@ void pollImu(uint32_t now) {
 
   if (motion.shaking()) {
     wake(now);
+    if (face.mood() != Mood::DIZZY) sound::play(Sound::WOBBLE);
     face.setMood(Mood::DIZZY, 2500);
   } else if (motion.takeJolt()) {
     wake(now);
@@ -154,10 +160,21 @@ void pollImu(uint32_t now) {
   }
 }
 
+void pollGoliash(uint32_t now) {
+  goliash::Alert a;
+  if (!goliash::takeAlert(a)) return;
+  face.showAlert(a.title, face.unseen() + a.count);
+  if (goliash::quietHours()) return;  // at night: badge only, let him (and you) sleep
+  wake(now);
+  face.setMood(Mood::SURPRISED, 1200);  // "furt dačo!"
+  sound::play(Sound::DING);
+}
+
 void updateIdle(uint32_t now) {
   if (happy_after && now >= happy_after) {
     happy_after = 0;
     face.setMood(Mood::HAPPY, 2200);
+    sound::play(Sound::CHIRP);
   }
   static uint32_t flat_since = 0;
   flat_since = motion.lyingFlat() ? (flat_since ? flat_since : now) : 0;
@@ -166,6 +183,7 @@ void updateIdle(uint32_t now) {
   if (!asleep && (idle > ASLEEP_AFTER_MS || (flat_since && now - flat_since > 3000))) {
     asleep = true;
     face.setMood(Mood::ASLEEP);
+    sound::play(Sound::YAWN);
     setBrightness(false);
   } else if (!asleep && idle > DROWSY_AFTER_MS && face.mood() == Mood::TIRED) {
     face.setBaseMood(Mood::DROWSY);
@@ -202,6 +220,8 @@ void setup() {
     Serial.println("IMU init failed");
   }
 
+  if (!sound::begin()) Serial.println("audio init failed");
+
   lv_init();
   const size_t buf_px = LCD_SIZE * kBufLines;
   auto *b1 = (lv_color_t *)heap_caps_malloc(buf_px * sizeof(lv_color_t), MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
@@ -220,6 +240,8 @@ void setup() {
   disp = lv_disp_drv_register(&drv);
 
   face.begin(lv_scr_act());
+  goliash::begin();
+  if (!goliash::configured()) Serial.println("no include/secrets.h: Goliash alerts are off");
   last_activity = millis();
   Serial.println("Goli is up. Furt dačo!");
 }
@@ -232,6 +254,7 @@ void loop() {
 
   pollTouch(now);
   pollImu(now);
+  pollGoliash(now);
   updateIdle(now);
   face.update(now);
   lv_timer_handler();

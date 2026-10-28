@@ -4,3 +4,4 @@ __pycache__/
 .DS_Store
 .pio/
 firmware/snapshots/
+firmware/include/secrets.h

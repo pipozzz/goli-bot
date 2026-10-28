@@ -20,6 +20,11 @@ class Face {
   void setTilt(float x, float y) { tilt_x_ = x; tilt_y_ = y; }  // -1..1, from the IMU
   void setPetting(bool on) { petting_ = on; }
 
+  // Goliash: red badge with the number of unseen messages, and the newest title scrolling under the mouth.
+  void showAlert(const char *title, int unseen);
+  void clearAlert();
+  int unseen() const { return unseen_; }
+
  private:
   struct Eye {
     lv_obj_t *lens, *pupil, *glint, *lid_top, *lid_line, *lid_bottom, *ring;
@@ -45,6 +50,9 @@ class Face {
   lv_obj_t *root_ = nullptr;
   Eye eyes_[2];
   lv_obj_t *bridge_ = nullptr, *mouth_ = nullptr, *cheeks_[2] = {}, *zzz_ = nullptr;
+  lv_obj_t *badge_ = nullptr, *badge_txt_ = nullptr, *title_ = nullptr;
+  int unseen_ = 0;
+  uint32_t title_until_ = 0;
   lv_point_t mouth_pts_[24];
 
   Mood mood_ = Mood::TIRED, base_ = Mood::TIRED;

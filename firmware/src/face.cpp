@@ -81,6 +81,26 @@ void Face::begin(lv_obj_t *screen) {
   lv_obj_set_style_text_color(zzz_, lv_color_hex(kLight), 0);
   lv_obj_add_flag(zzz_, LV_OBJ_FLAG_HIDDEN);
 
+  // Goliash alert: the red "!" badge from Goli's belly, with a count
+  badge_ = box(root_, 64, 64, kCheek, LV_RADIUS_CIRCLE);
+  lv_obj_set_style_border_color(badge_, lv_color_white(), 0);
+  lv_obj_set_style_border_width(badge_, 4, 0);
+  lv_obj_set_pos(badge_, kC - 32, 26);  // top centre, where the bell sits on his head
+  badge_txt_ = lv_label_create(badge_);
+  lv_obj_set_style_text_font(badge_txt_, &lv_font_montserrat_28, 0);
+  lv_obj_set_style_text_color(badge_txt_, lv_color_white(), 0);
+  lv_obj_center(badge_txt_);
+  lv_obj_add_flag(badge_, LV_OBJ_FLAG_HIDDEN);
+
+  title_ = lv_label_create(root_);
+  lv_obj_set_width(title_, 250);
+  lv_label_set_long_mode(title_, LV_LABEL_LONG_SCROLL_CIRCULAR);
+  lv_obj_set_style_text_align(title_, LV_TEXT_ALIGN_CENTER, 0);
+  lv_obj_set_style_text_font(title_, &lv_font_montserrat_28, 0);
+  lv_obj_set_style_text_color(title_, lv_color_white(), 0);
+  lv_obj_set_pos(title_, kC - 125, 374);
+  lv_obj_add_flag(title_, LV_OBJ_FLAG_HIDDEN);
+
   targetFor(mood_, tgt_);
   cur_ = tgt_;
   apply(0);
@@ -247,13 +267,34 @@ void Face::apply(uint32_t now) {
 
   for (auto *c : cheeks_) lv_obj_set_style_bg_opa(c, lv_opa_t(110 + 140 * cur_.blush), 0);
 
+  if (title_until_ && now >= title_until_) {
+    title_until_ = 0;
+    lv_obj_add_flag(title_, LV_OBJ_FLAG_HIDDEN);
+  }
+
   if (mood_ == Mood::ASLEEP) {
     lv_obj_clear_flag(zzz_, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_set_pos(zzz_, kC + 110, 70 + int(8.f * sinf(now / 700.f)));
+    lv_obj_set_pos(zzz_, kC + 64, 46 + int(8.f * sinf(now / 700.f)));
   } else {
     lv_obj_add_flag(zzz_, LV_OBJ_FLAG_HIDDEN);
   }
   drawMouth(now);
+}
+
+void Face::showAlert(const char *title, int unseen) {
+  unseen_ = unseen;
+  lv_label_set_text_fmt(badge_txt_, unseen > 9 ? "9+" : "%d", unseen);
+  lv_obj_clear_flag(badge_, LV_OBJ_FLAG_HIDDEN);
+  lv_label_set_text(title_, title);
+  lv_obj_clear_flag(title_, LV_OBJ_FLAG_HIDDEN);
+  title_until_ = millis() + 15000;
+}
+
+void Face::clearAlert() {
+  unseen_ = 0;
+  title_until_ = 0;
+  lv_obj_add_flag(badge_, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(title_, LV_OBJ_FLAG_HIDDEN);
 }
 
 void Face::drawMouth(uint32_t now) {

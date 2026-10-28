@@ -64,21 +64,22 @@ The belly, card and cheeks stand out in relief either way.
 
 ## Firmware
 
-`firmware/` is a PlatformIO project (Arduino core 3 via pioarduino, LVGL 8.4, the CO5300 driver from
-GFX Library for Arduino, and SensorLib for touch and IMU).
+`firmware/` is a PlatformIO project: Arduino core 3 (via pioarduino), LVGL 8.4, the CO5300 driver from
+GFX Library for Arduino, SensorLib for touch and IMU, Espressif's ES8311 codec driver, and ArduinoJson.
 
 ![Goli's faces](docs/faces.png)
 
 | Input | Goli |
 |---|---|
 | nothing happening | tired: heavy lids, worried brows, wavy mouth; blinks and glances around |
-| tap the face | boop: surprised, then happy with blushing cheeks |
+| new Goliash notification | **ding** of a desk bell, surprised face, red count badge, title scrolling under the mouth |
+| tap the face | boop: surprised, then happy with blushing cheeks; also marks alerts as seen |
 | double tap | wink |
 | finger resting on / stroking the face | petting: blissful closed eyes |
 | tilt him | pupils roll with the tilt |
-| shake him | dizzy, pupils spinning |
+| shake him | dizzy, pupils spinning, wobbly sound |
 | bump or pick him up | surprised |
-| 1 min idle → 5 min idle, or lying flat | drowsy → asleep (screen dims, "z Z", breathing) |
+| 1 min idle → 5 min idle, or lying flat | drowsy → asleep with a yawn (screen dims, "z Z", breathing) |
 | hold a finger still for 3 s | turns the face by 90° (saved): use it once after assembly |
 
 The whole face drifts by a few pixels over minutes so the AMOLED does not burn in.
@@ -89,7 +90,7 @@ pio run -t upload        # board in USB-C; hold BOOT while plugging in if upload
 pio device monitor
 ```
 
-`include/config.h` holds brightness, the idle timeouts and the tilt directions. If the pupils roll the wrong way
+`include/config.h` holds brightness, volume, quiet hours, the idle timeouts and the tilt directions. If the pupils roll the wrong way
 when you tilt Goli, flip `TILT_ROLL_SIGN` / `TILT_PITCH_SIGN`.
 
 Preview every expression without the board (renders `docs/faces.png`):
@@ -98,7 +99,26 @@ Preview every expression without the board (renders `docs/faces.png`):
 pio run -e snapshot && .pio/build/snapshot/program && python3 tools/sheet.py
 ```
 
-Not done yet: sound (the ES8311 codec and the speaker) and Goliash alerts over Wi-Fi.
+### Sounds
+
+Goli synthesizes all his sounds (no audio files): a brass desk bell for alerts (a few inharmonic partials
+with different decays), plus boop, chirp, wobble and yawn. Hear them in `docs/sounds/`
+(re-render with `python3 firmware/tools/sounds_wav.py`). The speaker amp is only on while a sound plays.
+From 22:00 to 07:00 (`QUIET_FROM` / `QUIET_TO`) alerts are silent and only the badge appears.
+
+### Goliash alerts
+
+1. Create a read-only token: `goliash token create -name goli-bot -role viewer`
+   (or *Settings → Users → API tokens*).
+2. `cp firmware/include/secrets.example.h firmware/include/secrets.h` and fill in Wi-Fi, your Goliash URL and
+   the token. `secrets.h` is git-ignored.
+3. Make sure a notify rule sends what you care about (any channel counts). To keep alerts inside Goliash
+   only, use the *In Goliash* channel.
+
+Every 30 s Goli asks `GET /api/v1/notifications/sent?since=…`, the same list the bell in the Goliash UI
+shows. Each message newer than the last one he saw rings once. The first poll after power-on only learns
+where things stand, so he doesn't ring for old news. TLS: put your CA in `GOLIASH_ROOT_CA`; if you leave it
+empty, the certificate is not checked.
 
 ## Changing the design
 

@@ -15,7 +15,24 @@
 #define TP_INT 11
 #define TP_RESET 40
 
+// ES8311 codec (I2C 0x18) + speaker amplifier enable
+#define I2S_MCLK 42
+#define I2S_BCLK 9
+#define I2S_WS 45
+#define I2S_DOUT 8   // ESP32 -> codec (speaker)
+#define I2S_DIN 10   // codec -> ESP32 (microphone, unused)
+#define AUDIO_PA_EN 46
+
 // ---- Behaviour
+// Speaker volume 0-100 (0 = silent Goli).
+#define SOUND_VOLUME 70
+
+// Goliash notifications (Wi-Fi and token live in include/secrets.h)
+#define GOLIASH_POLL_S 30
+// No sounds between these hours (local time); the face still shows the alert.
+#define QUIET_FROM 22
+#define QUIET_TO 7
+#define GOLI_TZ "CET-1CEST,M3.5.0,M10.5.0/3"   // POSIX TZ for Bratislava / Prague / Vienna
 // Screen brightness (0-255). AMOLED: keep it moderate on a desk, it also limits burn-in.
 #define BRIGHTNESS_AWAKE 170
 #define BRIGHTNESS_ASLEEP 25

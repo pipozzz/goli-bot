@@ -1,6 +1,7 @@
 // Host-only (env:snapshot): renders each mood into snapshots/<mood>.ppm.
 #include <lvgl.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/stat.h>
 
 #include "config.h"
@@ -61,9 +62,10 @@ int main() {
   struct { Mood m; const char *name; bool pet; } shots[] = {
       {Mood::TIRED, "1_tired", false},     {Mood::HAPPY, "2_happy", false},   {Mood::SURPRISED, "3_surprised", false},
       {Mood::DIZZY, "4_dizzy", false},     {Mood::WINK, "5_wink", false},     {Mood::TIRED, "6_petting", true},
-      {Mood::DROWSY, "7_drowsy", false},   {Mood::ASLEEP, "8_asleep", false},
+      {Mood::DROWSY, "7_drowsy", false},   {Mood::ASLEEP, "8_asleep", false},  {Mood::SURPRISED, "9_goliash", false},
   };
   for (auto &s : shots) {
+    if (!strcmp(s.name, "9_goliash")) face.showAlert("prod: payments-api drift detected", 3);
     face.setPetting(s.pet);
     face.setMood(s.m);
     run(face, 1200);
