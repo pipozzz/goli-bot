@@ -24,15 +24,14 @@
 #define AUDIO_PA_EN 46
 
 // ---- Behaviour
-// Speaker volume 0-100 (0 = silent Goli).
-#define SOUND_VOLUME 70
+// Speaker volume 0-100 before the user sets one in setup (0 = silent Goli).
+#define SOUND_VOLUME_DEFAULT 70
 
-// Goliash notifications (Wi-Fi and token live in include/secrets.h)
+// Goliash notifications. Wi-Fi, Goliash address, token, volume and quiet hours are set up
+// from a phone (setup mode); include/secrets.h can pre-fill them for developer builds.
 #define GOLIASH_POLL_S 30
-// No sounds between these hours (local time); the face still shows the alert.
-#define QUIET_FROM 22
-#define QUIET_TO 7
 #define GOLI_TZ "CET-1CEST,M3.5.0,M10.5.0/3"   // POSIX TZ for Bratislava / Prague / Vienna
+
 // Screen brightness (0-255). AMOLED: keep it moderate on a desk, it also limits burn-in.
 #define BRIGHTNESS_AWAKE 170
 #define BRIGHTNESS_ASLEEP 25
@@ -44,6 +43,11 @@
 // Hold a finger still on the face this long to turn the face by 90° (saved in flash).
 // Use it once after assembly if Goli looks sideways.
 #define ROTATE_HOLD_MS 3000
+
+// Tap the face this many times quickly to open setup mode again.
+#define SETUP_TAPS 5
+// Setup mode gives up after this long when Goli already has a working configuration.
+#define SETUP_TIMEOUT_MS (10UL * 60 * 1000)
 
 // The IMU sits on the board; if the pupils roll the wrong way when you tilt Goli,
 // flip these signs.

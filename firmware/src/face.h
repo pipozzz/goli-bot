@@ -23,6 +23,7 @@ class Face {
   // Goliash: red badge with the number of unseen messages, and the newest title scrolling under the mouth.
   void showAlert(const char *title, int unseen);
   void clearAlert();
+  void showStatus(const char *text);  // small grey hint at the bottom; nullptr hides it
   int unseen() const { return unseen_; }
 
  private:
@@ -50,7 +51,7 @@ class Face {
   lv_obj_t *root_ = nullptr;
   Eye eyes_[2];
   lv_obj_t *bridge_ = nullptr, *mouth_ = nullptr, *cheeks_[2] = {}, *zzz_ = nullptr;
-  lv_obj_t *badge_ = nullptr, *badge_txt_ = nullptr, *title_ = nullptr;
+  lv_obj_t *badge_ = nullptr, *badge_txt_ = nullptr, *title_ = nullptr, *status_ = nullptr;
   int unseen_ = 0;
   uint32_t title_until_ = 0;
   lv_point_t mouth_pts_[24];

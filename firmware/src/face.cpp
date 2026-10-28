@@ -4,6 +4,7 @@
 #include <math.h>
 
 #include <algorithm>
+#include <string.h>
 
 #include "config.h"
 
@@ -100,6 +101,14 @@ void Face::begin(lv_obj_t *screen) {
   lv_obj_set_style_text_color(title_, lv_color_white(), 0);
   lv_obj_set_pos(title_, kC - 125, 374);
   lv_obj_add_flag(title_, LV_OBJ_FLAG_HIDDEN);
+
+  status_ = lv_label_create(root_);
+  lv_obj_set_width(status_, 240);
+  lv_obj_set_style_text_align(status_, LV_TEXT_ALIGN_CENTER, 0);
+  lv_obj_set_style_text_font(status_, &lv_font_montserrat_14, 0);
+  lv_obj_set_style_text_color(status_, lv_color_hex(0x9a9fb8), 0);
+  lv_obj_set_pos(status_, kC - 120, 420);
+  lv_obj_add_flag(status_, LV_OBJ_FLAG_HIDDEN);
 
   targetFor(mood_, tgt_);
   cur_ = tgt_;
@@ -295,6 +304,15 @@ void Face::clearAlert() {
   title_until_ = 0;
   lv_obj_add_flag(badge_, LV_OBJ_FLAG_HIDDEN);
   lv_obj_add_flag(title_, LV_OBJ_FLAG_HIDDEN);
+}
+
+void Face::showStatus(const char *text) {
+  if (!text) {
+    lv_obj_add_flag(status_, LV_OBJ_FLAG_HIDDEN);
+    return;
+  }
+  if (strcmp(lv_label_get_text(status_), text)) lv_label_set_text(status_, text);
+  lv_obj_clear_flag(status_, LV_OBJ_FLAG_HIDDEN);
 }
 
 void Face::drawMouth(uint32_t now) {

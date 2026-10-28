@@ -6,6 +6,7 @@
 
 #include "config.h"
 #include "es8311.h"
+#include "settings.h"
 
 namespace sound {
 namespace {
@@ -16,6 +17,7 @@ const int kChunk = 256;  // samples per I2S write
 I2SClass i2s;
 es8311_handle_t codec = nullptr;
 QueueHandle_t queue = nullptr;
+int volume = 0;
 
 // One voice: a sum of decaying partials, optionally with a pitch glide.
 struct Partial {
@@ -132,7 +134,7 @@ bool begin() {
   if (es8311_init(codec, &clk, ES8311_RESOLUTION_16, ES8311_RESOLUTION_16) != ESP_OK) return false;
   es8311_sample_frequency_config(codec, clk.mclk_frequency, clk.sample_frequency);
   es8311_microphone_config(codec, false);
-  setVolume(SOUND_VOLUME);
+  setVolume(settings::get().volume);
 
   queue = xQueueCreate(4, sizeof(Sound));
   xTaskCreatePinnedToCore(task, "goli_sound", 4096, nullptr, 2, nullptr, 0);
@@ -140,12 +142,13 @@ bool begin() {
 }
 
 void play(Sound s) {
-  if (!queue || SOUND_VOLUME == 0) return;
+  if (!queue || volume == 0) return;
   xQueueReset(queue);
   xQueueSend(queue, &s, 0);
 }
 
 void setVolume(int percent) {
+  volume = percent;
   if (codec) es8311_voice_volume_set(codec, percent, nullptr);
 }
 

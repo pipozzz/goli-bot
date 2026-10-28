@@ -6,6 +6,7 @@
 
 #include "config.h"
 #include "face.h"
+#include "setup_ui.h"
 
 uint32_t g_fake_millis = 0;
 
@@ -74,5 +75,14 @@ int main() {
     save(s.name);
     printf("saved %s\n", s.name);
   }
+  // The setup screen replaces the face (its objects are gone, so no more face.update())
+  SetupUi setup;
+  setup.begin(lv_scr_act());
+  setup.showJoin("Goli-1A2B", "48201937");
+  lv_refr_now(nullptr);
+  save("setup_1_join");
+  setup.showOpen("http://192.168.4.1");
+  lv_refr_now(nullptr);
+  save("setup_2_open");
   return 0;
 }

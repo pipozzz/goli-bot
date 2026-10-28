@@ -11,9 +11,12 @@ struct Alert {
   char title[96];     // title of the newest one, folded to ASCII for the built-in font
 };
 
-bool configured();     // false when firmware was built without include/secrets.h
+enum class Status { OFF, CONNECTING, NO_WIFI, UNREACHABLE, BAD_TOKEN, OK };
+
+bool configured();     // Wi-Fi and Goliash are set up
 void begin();
+Status status();
 bool takeAlert(Alert &out);  // call from loop(); true when something new arrived
-bool quietHours();     // no sounds at night (see QUIET_FROM / QUIET_TO)
+bool quietHours();     // no sounds at night (quiet hours from setup)
 
 }  // namespace goliash

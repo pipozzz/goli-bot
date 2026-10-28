@@ -75,6 +75,7 @@ GFX Library for Arduino, SensorLib for touch and IMU, Espressif's ES8311 codec d
 | new Goliash notification | **ding** of a desk bell, surprised face, red count badge, title scrolling under the mouth |
 | tap the face | boop: surprised, then happy with blushing cheeks; also marks alerts as seen |
 | double tap | wink |
+| 5 quick taps | setup mode (QR code on the screen) |
 | finger resting on / stroking the face | petting: blissful closed eyes |
 | tilt him | pupils roll with the tilt |
 | shake him | dizzy, pupils spinning, wobbly sound |
@@ -90,7 +91,7 @@ pio run -t upload        # board in USB-C; hold BOOT while plugging in if upload
 pio device monitor
 ```
 
-`include/config.h` holds brightness, volume, quiet hours, the idle timeouts and the tilt directions. If the pupils roll the wrong way
+`include/config.h` holds brightness, default volume, timezone, the idle timeouts and the tilt directions. If the pupils roll the wrong way
 when you tilt Goli, flip `TILT_ROLL_SIGN` / `TILT_PITCH_SIGN`.
 
 Preview every expression without the board (renders `docs/faces.png`):
@@ -104,21 +105,43 @@ pio run -e snapshot && .pio/build/snapshot/program && python3 tools/sheet.py
 Goli synthesizes all his sounds (no audio files): a brass desk bell for alerts (a few inharmonic partials
 with different decays), plus boop, chirp, wobble and yawn. Hear them in `docs/sounds/`
 (re-render with `python3 firmware/tools/sounds_wav.py`). The speaker amp is only on while a sound plays.
-From 22:00 to 07:00 (`QUIET_FROM` / `QUIET_TO`) alerts are silent and only the badge appears.
+During quiet hours (22:00 to 07:00 by default, set on the setup page) alerts are silent and only the badge appears.
+
+### Setting Goli up (from a phone or a PC)
+
+On first start, Goli has no Wi-Fi yet, so he opens a setup hotspot and shows a QR code. To set him up again
+later, **tap his face 5 times** quickly.
+
+| On Goli's screen | On your phone |
+|---|---|
+| ![setup screen](docs/setup-screen.png) | ![setup page](docs/setup-page.jpg) |
+
+1. Scan the QR code with the phone camera to join `Goli-XXXX`. The password is on the screen and changes
+   every time.
+2. The setup page opens by itself (captive portal). If it doesn't, scan the second QR code or open `192.168.4.1`.
+3. Pick your Wi-Fi, enter your Goliash address and API token, and set volume and quiet hours. Then tap **Save**.
+   Goli restarts and joins your Wi-Fi.
+
+A PC works the same way: join the `Goli-XXXX` Wi-Fi and open `192.168.4.1`. Everything is stored in Goli's flash.
+Saved passwords and the token are never shown back on the page; leave a field empty to keep the old value.
+If the Wi-Fi or the token stops working, a hint appears at the bottom of his face.
+
+Why not Bluetooth: setting a device up over Bluetooth from a web page (Web Bluetooth) doesn't work on iPhone.
+The hotspot works on every phone and computer without an app.
 
 ### Goliash alerts
 
-1. Create a read-only token: `goliash token create -name goli-bot -role viewer`
-   (or *Settings → Users → API tokens*).
-2. `cp firmware/include/secrets.example.h firmware/include/secrets.h` and fill in Wi-Fi, your Goliash URL and
-   the token. `secrets.h` is git-ignored.
-3. Make sure a notify rule sends what you care about (any channel counts). To keep alerts inside Goliash
-   only, use the *In Goliash* channel.
+Create a read-only token for the setup page: `goliash token create -name goli-bot -role viewer`
+(or *Settings → Users → API tokens*). Make sure a notify rule sends what you care about; any channel counts.
+To keep alerts inside Goliash only, use the *In Goliash* channel.
 
 Every 30 s Goli asks `GET /api/v1/notifications/sent?since=…`, the same list the bell in the Goliash UI
 shows. Each message newer than the last one he saw rings once. The first poll after power-on only learns
-where things stand, so he doesn't ring for old news. TLS: put your CA in `GOLIASH_ROOT_CA`; if you leave it
-empty, the certificate is not checked.
+where things stand, so he doesn't ring for old news. If you leave the certificate field empty, the
+Goliash certificate is not checked.
+
+Developers can pre-fill the settings at build time: copy `firmware/include/secrets.example.h` to `secrets.h`
+(git-ignored). It is only used while nothing has been saved on the device.
 
 ## Changing the design
 

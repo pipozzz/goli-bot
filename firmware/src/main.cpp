@@ -18,6 +18,8 @@
 #include "face.h"
 #include "goliash.h"
 #include "motion.h"
+#include "settings.h"
+#include "setup.h"
 #include "sound.h"
 
 namespace {
@@ -56,8 +58,11 @@ struct {
   uint32_t start = 0, last = 0;
   int16_t x0 = 0, y0 = 0, travel = 0;
   bool petting = false, rotated = false;
-  uint32_t pending_tap = 0;   // time of a single tap waiting to see if a second one follows
 } tp;
+
+// Quick taps in a row: 1 = boop, 2 = wink, SETUP_TAPS = setup mode
+int taps = 0;
+uint32_t last_tap = 0;
 
 // ---- mood sequencing
 uint32_t last_activity = 0;
@@ -100,7 +105,6 @@ void pollTouch(uint32_t now) {
         tp.start = now;
         tp.x0 = x[0];
         tp.y0 = y[0];
-        tp.pending_tap = 0;
       }
       tp.travel = max<int16_t>(tp.travel, abs(x[0] - tp.x0) + abs(y[0] - tp.y0));
       tp.last = now;
@@ -113,13 +117,9 @@ void pollTouch(uint32_t now) {
       tp.down = false;
       face.setPetting(false);
       if (!tp.petting && !tp.rotated && held < 350 && tp.travel < 30) {
-        if (tp.pending_tap && now - tp.pending_tap < 450) {
-          tp.pending_tap = 0;
-          face.setMood(Mood::WINK, 1300);
-          sound::play(Sound::CHIRP);
-        } else {
-          tp.pending_tap = now;
-        }
+        taps = now - last_tap < 500 ? taps + 1 : 1;
+        last_tap = now;
+        if (taps >= SETUP_TAPS) settings::requestSetup();  // restarts into setup mode
       }
       return;
     }
@@ -132,12 +132,17 @@ void pollTouch(uint32_t now) {
       face.setPetting(true);
     }
   }
-  if (tp.pending_tap && now - tp.pending_tap > 450) {  // it was a single tap: boop!
-    tp.pending_tap = 0;
-    face.setMood(Mood::SURPRISED, 450);
-    sound::play(Sound::BOOP);
-    face.clearAlert();  // a boop means "seen"
-    happy_after = now + 450;
+  if (taps && !tp.down && now - last_tap > 500) {  // the tap sequence is over
+    if (taps == 2) {
+      face.setMood(Mood::WINK, 1300);
+      sound::play(Sound::CHIRP);
+    } else {  // boop!
+      face.setMood(Mood::SURPRISED, 450);
+      sound::play(Sound::BOOP);
+      happy_after = now + 450;
+    }
+    face.clearAlert();  // any tap means "seen"
+    taps = 0;
   }
 }
 
@@ -170,6 +175,21 @@ void pollGoliash(uint32_t now) {
   sound::play(Sound::DING);
 }
 
+// A short hint under the mouth when the connection needs attention
+void showStatus(uint32_t now) {
+  static uint32_t next = 0;
+  if (now < next) return;
+  next = now + 1000;
+  const char *msg = nullptr;
+  switch (goliash::status()) {
+    case goliash::Status::NO_WIFI: msg = "no Wi-Fi - tap me 5x"; break;
+    case goliash::Status::BAD_TOKEN: msg = "Goliash token? tap 5x"; break;
+    case goliash::Status::UNREACHABLE: msg = "Goliash unreachable"; break;
+    default: break;
+  }
+  face.showStatus(msg);
+}
+
 void updateIdle(uint32_t now) {
   if (happy_after && now >= happy_after) {
     happy_after = 0;
@@ -199,6 +219,8 @@ void setup() {
   Wire.begin(IIC_SDA, IIC_SCL);
   randomSeed(esp_random());
   prefs.begin("goli", false);
+  settings::load();
+  const bool want_setup = settings::takeSetupRequest() || !settings::hasWifi();
 
   if (!gfx->begin()) Serial.println("display init failed");
   gfx->fillScreen(0x0000);
@@ -239,9 +261,10 @@ void setup() {
   drv.rotated = lv_disp_rot_t(prefs.getUChar("rot", LV_DISP_ROT_NONE) % 4);
   disp = lv_disp_drv_register(&drv);
 
+  if (want_setup) setup_mode::run();  // never returns
+
   face.begin(lv_scr_act());
   goliash::begin();
-  if (!goliash::configured()) Serial.println("no include/secrets.h: Goliash alerts are off");
   last_activity = millis();
   Serial.println("Goli is up. Furt dačo!");
 }
@@ -255,6 +278,7 @@ void loop() {
   pollTouch(now);
   pollImu(now);
   pollGoliash(now);
+  showStatus(now);
   updateIdle(now);
   face.update(now);
   lv_timer_handler();

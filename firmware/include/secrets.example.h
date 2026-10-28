@@ -1,5 +1,6 @@
 #pragma once
-// Copy to secrets.h (git-ignored) and fill in. Without secrets.h Goli runs offline.
+// Optional, for developer builds: copy to secrets.h (git-ignored) to pre-fill the settings.
+// Normally you set Goli up from your phone instead (tap his face 5 times).
 
 #define WIFI_SSID "my-wifi"
 #define WIFI_PASS "my-wifi-password"

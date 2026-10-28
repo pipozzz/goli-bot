@@ -8,18 +8,13 @@
 #include <time.h>
 
 #include "config.h"
-
-#if __has_include("secrets.h")
-#include "secrets.h"
-#define GOLI_ONLINE 1
-#else
-#define GOLI_ONLINE 0
-#endif
+#include "settings.h"
 
 namespace goliash {
 namespace {
 
 QueueHandle_t alerts = nullptr;
+volatile Status state = Status::OFF;
 int64_t last_ms = 0;  // newest sent_at seen, Unix ms (0 = not polled yet)
 
 // Days since 1970-01-01 for a civil date (Howard Hinnant's algorithm).
@@ -85,13 +80,13 @@ void foldAscii(const char *in, char *out, size_t cap) {
   out[o] = 0;
 }
 
-#if GOLI_ONLINE
 void poll() {
+  const Settings &cfg = settings::get();
   NetworkClientSecure tls;
   NetworkClient plain;
-  const bool https = !strncmp(GOLIASH_URL, "https://", 8);
+  const bool https = cfg.url.startsWith("https://");
   if (https) {
-    if (strlen(GOLIASH_ROOT_CA)) tls.setCACert(GOLIASH_ROOT_CA);
+    if (cfg.ca.length()) tls.setCACert(cfg.ca.c_str());
     else tls.setInsecure();
   }
 
@@ -105,16 +100,17 @@ void poll() {
   } else {
     strcpy(since, "24h");
   }
-  String url = String(GOLIASH_URL) + "/api/v1/notifications/sent?since=" + since;
+  String url = cfg.url + "/api/v1/notifications/sent?since=" + since;
 
   HTTPClient http;
   if (!(https ? http.begin(tls, url) : http.begin(plain, url))) return;
-  http.addHeader("Authorization", "Bearer " GOLIASH_TOKEN);
+  http.addHeader("Authorization", "Bearer " + cfg.token);
   http.addHeader("Accept", "application/json");
   http.setTimeout(8000);
   const int code = http.GET();
   if (code != 200) {
     Serial.printf("goliash: HTTP %d\n", code);
+    state = code == 401 || code == 403 ? Status::BAD_TOKEN : Status::UNREACHABLE;
     http.end();
     return;
   }
@@ -127,8 +123,10 @@ void poll() {
   http.end();
   if (err) {
     Serial.printf("goliash: bad JSON (%s)\n", err.c_str());
+    state = Status::UNREACHABLE;
     return;
   }
+  state = Status::OK;
 
   // Newest first
   int64_t newest = last_ms;
@@ -156,27 +154,34 @@ void poll() {
 }
 
 void task(void *) {
+  const Settings &cfg = settings::get();
   WiFi.mode(WIFI_STA);
   WiFi.setAutoReconnect(true);
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  WiFi.begin(cfg.ssid.c_str(), cfg.pass.c_str());
   configTzTime(GOLI_TZ, "pool.ntp.org", "time.google.com");
+  state = Status::CONNECTING;
+  const uint32_t started = millis();
   for (;;) {
-    if (WiFi.status() == WL_CONNECTED) poll();
-    vTaskDelay(pdMS_TO_TICKS(GOLIASH_POLL_S * 1000));
+    if (WiFi.status() == WL_CONNECTED) {
+      if (settings::hasGoliash()) poll();
+      else state = Status::OK;
+    } else if (millis() - started > 45000) {
+      state = Status::NO_WIFI;
+    }
+    vTaskDelay(pdMS_TO_TICKS((state == Status::OK ? GOLIASH_POLL_S : 10) * 1000));
   }
 }
-#endif
 
 }  // namespace
 
-bool configured() { return GOLI_ONLINE; }
+bool configured() { return settings::hasWifi(); }
 
 void begin() {
   alerts = xQueueCreate(4, sizeof(Alert));
-#if GOLI_ONLINE
-  xTaskCreatePinnedToCore(task, "goli_net", 12288, nullptr, 1, nullptr, 0);
-#endif
+  if (configured()) xTaskCreatePinnedToCore(task, "goli_net", 12288, nullptr, 1, nullptr, 0);
 }
+
+Status status() { return state; }
 
 bool takeAlert(Alert &out) { return alerts && xQueueReceive(alerts, &out, 0) == pdTRUE; }
 
@@ -186,7 +191,9 @@ bool quietHours() {
   struct tm tm;
   localtime_r(&now, &tm);
   const int h = tm.tm_hour;
-  return QUIET_FROM > QUIET_TO ? (h >= QUIET_FROM || h < QUIET_TO) : (h >= QUIET_FROM && h < QUIET_TO);
+  const int from = settings::get().quiet_from, to = settings::get().quiet_to;
+  if (from == to) return false;  // no quiet hours
+  return from > to ? (h >= from || h < to) : (h >= from && h < to);
 }
 
 }  // namespace goliash
