@@ -1,7 +1,9 @@
 // Goli desk bot: Goli's animated face on the Waveshare ESP32-S3-Touch-AMOLED-1.75.
 //
-// Touch: tap = boop (surprised, then happy), double tap = wink, finger on the face = petting,
+// Touch: tap = boop (surprised, then happy), 2 taps = wink, 3 taps = focus mode, 5 taps = setup,
+//        10 taps = demo; finger on the face = petting; swipe = overview / clock / status pages;
 //        hold still for ROTATE_HOLD_MS = turn the face 90° (saved).
+// Ears:  a clap marks alerts as seen; loud noise makes him wince.
 // IMU:   tilt = pupils follow, shake = dizzy, bump = surprised, lying flat = falls asleep.
 // Idle:  tired -> drowsy -> asleep (dim); any touch or motion wakes him up.
 // Boot with a finger on the face: self-test screen.
@@ -12,17 +14,23 @@
 #include <Wire.h>
 #include <esp_heap_caps.h>
 #include <lvgl.h>
+#include <time.h>
 
 #include "Arduino_GFX_Library.h"
 #include "SensorQMI8658.hpp"
 #include "TouchDrvCSTXXX.hpp"
+#include "api.h"
 #include "config.h"
+#include "demo.h"
 #include "face.h"
 #include "goliash.h"
 #include "improv.h"
+#include "mic.h"
 #include "motion.h"
 #include "ota.h"
 #include "power.h"
+#include "rtc.h"
+#include "screens.h"
 #include "selftest_ui.h"
 #include "settings.h"
 #include "setup.h"
@@ -37,6 +45,7 @@ SensorQMI8658 imu;
 Preferences prefs;
 
 Face face;
+Screens screens;
 Motion motion;
 lv_disp_t *disp = nullptr;
 
@@ -44,7 +53,7 @@ const int kBufLines = 40;
 lv_disp_draw_buf_t draw_buf;
 
 volatile bool touch_irq = false;
-bool touch_ok = false, imu_ok = false, sound_ok = false, power_ok = false;
+bool touch_ok = false, imu_ok = false, sound_ok = false, power_ok = false, mic_ok = false;
 
 // CO5300 wants even start and odd end coordinates
 void rounder(lv_disp_drv_t *, lv_area_t *a) {
@@ -63,13 +72,15 @@ void flush(lv_disp_drv_t *drv, const lv_area_t *a, lv_color_t *px) {
 struct {
   bool down = false;
   uint32_t start = 0, last = 0;
-  int16_t x0 = 0, y0 = 0, travel = 0;
+  int16_t x0 = 0, y0 = 0, x1 = 0, y1 = 0, travel = 0;
   bool petting = false, rotated = false;
 } tp;
 
-// Quick taps in a row: 1 = boop, 2 = wink, SETUP_TAPS = setup mode
+// Quick taps in a row: 1 = boop, 2 = wink, FOCUS_TAPS = focus, SETUP_TAPS = setup, DEMO_TAPS = demo
 int taps = 0;
 uint32_t last_tap = 0;
+uint32_t page_since = 0;   // when the current swipe page was opened or touched
+uint32_t focus_until = 0;  // focus mode end (0 = off)
 
 // ---- mood sequencing
 uint32_t last_activity = 0;
@@ -84,16 +95,43 @@ void setBrightness(int want) {
 }
 void setBrightness(bool awake) { setBrightness(awake ? BRIGHTNESS_AWAKE : BRIGHTNESS_ASLEEP); }
 
+Mood resting() { return focus_until ? Mood::FOCUSED : Mood::TIRED; }
+
 void wake(uint32_t now) {
   last_activity = now;
   if (asleep) {
     asleep = false;
     setBrightness(true);
-    face.setBaseMood(Mood::TIRED);
+    face.setBaseMood(resting());
     face.setMood(Mood::SURPRISED, 700);
   } else if (face.mood() == Mood::DROWSY) {
-    face.setBaseMood(Mood::TIRED);
+    face.setBaseMood(resting());
   }
+}
+
+void toggleFocus(uint32_t now) {
+  if (focus_until) {
+    focus_until = 0;
+    face.setFocus(-1, 0);
+    face.setBaseMood(Mood::TIRED);
+    sound::play(Sound::BOOP);
+  } else {
+    focus_until = now + FOCUS_MIN * 60000UL;
+    face.setBaseMood(Mood::FOCUSED);
+    face.setFocus(FOCUS_MIN * 60, FOCUS_MIN * 60);
+    sound::play(Sound::CHIRP);
+  }
+}
+
+// A swipe in panel coordinates, turned into the face's orientation: next or previous page
+void swipe(int dx, int dy) {
+  for (int r = int(lv_disp_get_rotation(disp)); r > 0; r--) {
+    const int t = dx;  // same mapping as LVGL's input rotation
+    dx = -dy;
+    dy = t;
+  }
+  const int along = abs(dx) >= abs(dy) ? dx : dy;
+  screens.show(screens.page() + (along < 0 ? 1 : -1));
 }
 
 void rotateFace() {
@@ -116,7 +154,10 @@ void pollTouch(uint32_t now) {
         tp.y0 = y[0];
       }
       tp.travel = max<int16_t>(tp.travel, abs(x[0] - tp.x0) + abs(y[0] - tp.y0));
+      tp.x1 = x[0];
+      tp.y1 = y[0];
       tp.last = now;
+      page_since = now;
       wake(now);
     }
   }
@@ -125,10 +166,16 @@ void pollTouch(uint32_t now) {
     if (now - tp.last > 120) {  // finger lifted
       tp.down = false;
       face.setPetting(false);
+      const int dx = tp.x1 - tp.x0, dy = tp.y1 - tp.y0;
       if (!tp.petting && !tp.rotated && held < 350 && tp.travel < 30) {
         taps = now - last_tap < 500 ? taps + 1 : 1;
         last_tap = now;
-        if (taps >= SETUP_TAPS) settings::requestSetup();  // restarts into setup mode
+        return;
+      }
+      taps = 0;  // a swipe, a hold or petting is not part of a tap sequence
+      if (!tp.petting && !tp.rotated && held < 600 && max(abs(dx), abs(dy)) > 100) {
+        if (demo::active()) demo::stop(face, resting());
+        swipe(dx, dy);
       }
       return;
     }
@@ -136,13 +183,32 @@ void pollTouch(uint32_t now) {
       tp.rotated = true;
       face.setPetting(false);
       rotateFace();
-    } else if (!tp.rotated && (held > 500 || tp.travel > 40)) {
+    } else if (!tp.rotated && held > 500 && screens.page() == Screens::FACE) {
       tp.petting = true;
       face.setPetting(true);
     }
   }
   if (taps && !tp.down && now - last_tap > 500) {  // the tap sequence is over
-    if (taps == 2) {
+    const int n = taps;
+    taps = 0;
+    if (demo::active()) {  // any tap ends the demo
+      demo::stop(face, resting());
+      return;
+    }
+    if (screens.page() != Screens::FACE) {  // a tap on a page goes back to the face
+      screens.show(Screens::FACE);
+      return;
+    }
+    if (n >= DEMO_TAPS) {
+      demo::start(face);
+      return;
+    }
+    if (n >= SETUP_TAPS) settings::requestSetup();  // restarts into setup mode
+    if (n == FOCUS_TAPS) {
+      toggleFocus(now);
+      return;
+    }
+    if (n == 2) {
       face.setMood(Mood::WINK, 1300);
       sound::play(Sound::CHIRP);
     } else {  // boop!
@@ -151,7 +217,6 @@ void pollTouch(uint32_t now) {
       happy_after = now + 450;
     }
     face.clearAlert();  // any tap means "seen"
-    taps = 0;
   }
 }
 
@@ -176,9 +241,11 @@ void pollImu(uint32_t now) {
 
 void pollGoliash(uint32_t now) {
   goliash::Alert a;
-  if (!goliash::takeAlert(a)) return;
+  if (demo::active() || !goliash::takeAlert(a)) return;
   face.showAlert(a.title, face.unseen() + a.count, a.level);
   if (goliash::quietHours()) return;  // at night: badge only, let him (and you) sleep
+  if (focus_until && a.level != AlertLevel::CRITICAL) return;  // focusing: only what's on fire
+  screens.show(Screens::FACE);
   wake(now);
   switch (a.level) {
     case AlertLevel::CRITICAL:  // an agent went quiet, a vulnerability, prod drift...
@@ -193,6 +260,91 @@ void pollGoliash(uint32_t now) {
       face.setMood(Mood::SURPRISED, 1200);  // "furt dačo!"
       sound::play(Sound::DING);
   }
+}
+
+// Claps and noise
+void pollMic(uint32_t now) {
+  if (!mic_ok || demo::active()) return;
+  const bool touched = tp.down || now - tp.last < 400;  // a knock on the glass is not a clap
+  if (mic::takeClap() && !touched) {
+    wake(now);
+    if (face.unseen()) {  // "got it": alerts seen
+      face.clearAlert();
+      face.setMood(Mood::WINK, 1000);
+    } else {
+      face.setMood(Mood::SURPRISED, 600);
+    }
+  }
+  // Wince while it's loud, but never over an alert's face or anything else that is showing
+  if (mic::loud() && !asleep && (face.mood() == Mood::WINCE || !face.held())) face.setMood(Mood::WINCE, 800);
+}
+
+// Once a second: focus countdown, the night clock and the swipe pages
+void tickSecond(uint32_t now) {
+  static uint32_t next = 0;
+  if (now < next) return;
+  next = now + 1000;
+
+  if (focus_until) {
+    const int32_t left = int32_t(focus_until - now) / 1000;
+    if (left <= 0) {  // done!
+      focus_until = 0;
+      face.setFocus(-1, 0);
+      face.setBaseMood(Mood::TIRED);
+      wake(now);
+      face.setMood(Mood::HAPPY, 3000);
+      sound::play(Sound::CHIRP);
+    } else {
+      face.setFocus(left, FOCUS_MIN * 60);
+    }
+  }
+
+  const time_t t = time(nullptr);
+  const bool clock_ok = t > 1700000000;
+  struct tm lt;
+  localtime_r(&t, &lt);
+  char hhmm[8], date[32];
+  strftime(hhmm, sizeof hhmm, "%H:%M", &lt);
+  strftime(date, sizeof date, "%a %d %b", &lt);
+  face.setClock(clock_ok ? hhmm : nullptr);
+
+  switch (screens.page()) {
+    case Screens::OVERVIEW: {
+      goliash::Summary s;
+      if (goliash::summary(s)) {
+        char ago[24];
+        const int32_t age = int32_t(millis() - s.at_ms);  // at_ms comes from the other core
+        const int32_t min = age > 0 ? age / 60000 : 0;
+        if (min) snprintf(ago, sizeof ago, "%ld min ago", (long)min);
+        else snprintf(ago, sizeof ago, "just now");
+        screens.setOverview(s.workspace, s.services, s.drifting, s.updates, s.exploited, s.stale, ago);
+      } else {
+        screens.setOverview(nullptr, 0, 0, 0, 0, 0,
+                            settings::hasGoliash() ? "waiting for Goliash..." : "Goliash not set up (tap me 5x)");
+      }
+      break;
+    }
+    case Screens::CLOCK:
+      screens.setClock(clock_ok ? hhmm : "--:--", clock_ok ? date : "no time yet");
+      break;
+    case Screens::STATUS: {
+      static const char *states[] = {"off", "connecting", "no Wi-Fi", "unreachable", "bad token", "ok"};
+      char text[256], wifi[48], bat[32];
+      if (WiFi.status() == WL_CONNECTED)
+        snprintf(wifi, sizeof wifi, "%s\n%d dBm", WiFi.localIP().toString().c_str(), WiFi.RSSI());
+      else
+        snprintf(wifi, sizeof wifi, "no Wi-Fi\n%s", api::hostname());
+      if (battery.battery) snprintf(bat, sizeof bat, "battery %d%%%s", battery.percent, battery.charging ? " +" : "");
+      else snprintf(bat, sizeof bat, "USB power");
+      snprintf(text, sizeof text, "%s\n%s\nGoliash: %s\n%s", GOLI_VERSION, wifi,
+               states[int(goliash::status())], bat);
+      screens.setStatus(text);
+      break;
+    }
+    default:
+      break;
+  }
+  if (screens.page() != Screens::FACE && now - page_since > PAGE_TIMEOUT_MS) screens.show(Screens::FACE);
 }
 
 // Battery icon while charging or low, and a dark screen when he sleeps on battery for long
@@ -215,6 +367,7 @@ void showStatus(uint32_t now) {
     face.showStatus("updating myself...");
     return;
   }
+  if (demo::active()) return;  // the demo shows its own hint
   switch (goliash::status()) {
     case goliash::Status::NO_WIFI: msg = "no Wi-Fi - tap me 5x"; break;
     case goliash::Status::BAD_TOKEN: msg = "Goliash token? tap 5x"; break;
@@ -233,6 +386,7 @@ void updateIdle(uint32_t now) {
   static uint32_t flat_since = 0;
   flat_since = motion.lyingFlat() ? (flat_since ? flat_since : now) : 0;
   const uint32_t idle = now - max(last_activity, motion.lastMoveMs());
+  if (focus_until || demo::active()) return;  // no napping on the job
 
   if (asleep && battery.battery && !battery.usb && now - asleep_since > SCREEN_OFF_AFTER_MS) {
     setBrightness(0);  // on battery and nobody around: screen off until touched or moved
@@ -272,6 +426,7 @@ bool fingerAtBoot() {
   }
   ui.setLine(0, touch_ok ? "touch: lift, then tap" : "touch: no answer", touch_ok);
   ui.setLine(2, sound_ok ? "sound: tap for a ding" : "sound: no codec", sound_ok);
+  if (!mic_ok) ui.setLine(5, "mic: no ADC", false);
 
   bool armed = false, down = false;  // armed once the boot finger is lifted
   uint32_t down_since = 0, last_seen = 0, last = millis(), next_slow = 0, next_imu = 0;
@@ -327,6 +482,11 @@ bool fingerAtBoot() {
         ui.setLine(3, "Wi-Fi: joining...", now < 20000);
       }
 
+      if (mic_ok) {
+        snprintf(line, sizeof line, "mic: %d dB", mic::levelDb());
+        ui.setLine(5, line, true);
+      }
+
       const power::State p = power::read();
       if (!power_ok) snprintf(line, sizeof line, "power: no PMU");
       else if (p.battery) snprintf(line, sizeof line, "battery: %d%% %.2f V%s", p.percent, p.millivolts / 1000.f, p.charging ? " +" : "");
@@ -343,6 +503,7 @@ bool fingerAtBoot() {
 void setup() {
   Serial.begin(115200);
   Wire.begin(IIC_SDA, IIC_SCL);
+  rtc::begin();  // the time, even before Wi-Fi
   randomSeed(esp_random());
   prefs.begin("goli", false);
   settings::load();
@@ -372,6 +533,8 @@ void setup() {
 
   sound_ok = sound::begin();
   if (!sound_ok) Serial.println("audio init failed");
+  mic_ok = sound_ok && mic::begin();
+  if (!mic_ok) Serial.println("mic init failed");
   power_ok = power::begin();
   if (!power_ok) Serial.println("PMU init failed");
   const bool want_selftest = fingerAtBoot();
@@ -397,6 +560,8 @@ void setup() {
   if (want_setup) setup_mode::run();  // never returns
 
   face.begin(lv_scr_act());
+  screens.begin(lv_scr_act());  // on top of the face
+  api::begin();                 // before Wi-Fi starts: sets the hostname
   goliash::begin();
   improv::begin(nullptr, nullptr);  // the web installer can change the Wi-Fi
   last_activity = millis();
@@ -412,8 +577,12 @@ void loop() {
   pollTouch(now);
   pollImu(now);
   pollGoliash(now);
+  pollMic(now);
   pollPower(now);
   improv::loop();
+  rtc::maintain(now);
+  demo::update(now);
+  tickSecond(now);
   showStatus(now);
   updateIdle(now);
   face.update(now);

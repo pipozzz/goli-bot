@@ -19,6 +19,8 @@ namespace {
 QueueHandle_t alerts = nullptr;
 volatile Status state = Status::OFF;
 int64_t last_ms = 0;  // newest sent_at seen, Unix ms (0 = not polled yet)
+Summary last_summary;
+portMUX_TYPE summary_lock = portMUX_INITIALIZER_UNLOCKED;
 
 // Days since 1970-01-01 for a civil date (Howard Hinnant's algorithm).
 int64_t daysFromCivil(int y, unsigned m, unsigned d) {
@@ -95,7 +97,49 @@ AlertLevel levelOf(JsonObjectConst item) {
   return AlertLevel::INFO;
 }
 
-void poll() {
+// Does an item pass the filter from setup? Items without an environment or a service always pass.
+bool wanted(JsonObjectConst item, AlertLevel level) {
+  const Settings &cfg = settings::get();
+  if (cfg.min_level >= int(AlertLevel::CRITICAL) && level != AlertLevel::CRITICAL) return false;
+  if (cfg.prod_only && item["environment"].is<const char *>() && !(item["production"] | false)) return false;
+  const char *svc = item["service"] | "";
+  if (cfg.services.length() && *svc) {
+    for (int from = 0; from <= int(cfg.services.length());) {
+      int comma = cfg.services.indexOf(',', from);
+      if (comma < 0) comma = cfg.services.length();
+      String name = cfg.services.substring(from, comma);
+      name.trim();
+      if (name.equalsIgnoreCase(svc)) return true;
+      from = comma + 1;
+    }
+    return false;
+  }
+  return true;
+}
+
+// The worst level among the items that pass the filter; false when none does.
+bool judge(JsonArrayConst items, AlertLevel &level) {
+  bool any = false;
+  for (JsonObjectConst item : items) {
+    const AlertLevel l = levelOf(item);
+    if (!wanted(item, l)) continue;
+    level = any ? std::max(level, l) : l;
+    any = true;
+  }
+  return any;
+}
+
+void queue(const char *title, int count, AlertLevel level) {
+  Alert a;
+  a.count = count > 99 ? 99 : count;
+  a.level = level;
+  foldAscii(title, a.title, sizeof a.title);
+  Serial.printf("goliash: %d new, \"%s\"\n", count, a.title);
+  xQueueSend(alerts, &a, 0);
+}
+
+// GET a Goliash API path into doc; updates the connection state. Returns true on 200 + valid JSON.
+bool fetch(const String &path, JsonDocument &doc, const JsonDocument *filter) {
   const Settings &cfg = settings::get();
   NetworkClientSecure tls;
   NetworkClient plain;
@@ -104,7 +148,33 @@ void poll() {
     if (cfg.ca.length()) tls.setCACert(cfg.ca.c_str());
     else tls.setInsecure();
   }
+  const String url = cfg.url + path;
+  HTTPClient http;
+  if (!(https ? http.begin(tls, url) : http.begin(plain, url))) return false;
+  http.addHeader("Authorization", "Bearer " + cfg.token);
+  http.addHeader("Accept", "application/json");
+  http.setTimeout(8000);
+  const int code = http.GET();
+  if (code != 200) {
+    Serial.printf("goliash: %s HTTP %d\n", path.c_str(), code);
+    state = code == 401 || code == 403 ? Status::BAD_TOKEN : Status::UNREACHABLE;
+    http.end();
+    return false;
+  }
+  const DeserializationError err = filter
+                                       ? deserializeJson(doc, http.getStream(), DeserializationOption::Filter(*filter))
+                                       : deserializeJson(doc, http.getStream());
+  http.end();
+  if (err) {
+    Serial.printf("goliash: bad JSON from %s (%s)\n", path.c_str(), err.c_str());
+    state = Status::UNREACHABLE;
+    return false;
+  }
+  state = Status::OK;
+  return true;
+}
 
+void poll() {
   // First poll only learns where we are; afterwards ask for what came after the newest one seen.
   char since[40];
   if (last_ms) {
@@ -115,52 +185,27 @@ void poll() {
   } else {
     strcpy(since, "24h");
   }
-  String url = cfg.url + "/api/v1/notifications/sent?since=" + since;
-
-  HTTPClient http;
-  if (!(https ? http.begin(tls, url) : http.begin(plain, url))) return;
-  http.addHeader("Authorization", "Bearer " + cfg.token);
-  http.addHeader("Accept", "application/json");
-  http.setTimeout(8000);
-  const int code = http.GET();
-  if (code != 200) {
-    Serial.printf("goliash: HTTP %d\n", code);
-    state = code == 401 || code == 403 ? Status::BAD_TOKEN : Status::UNREACHABLE;
-    http.end();
-    return;
-  }
 
   JsonDocument filter;
   filter[0]["sent_at"] = true;
   filter[0]["title"] = true;
-  filter[0]["items"][0]["type"] = true;
-  filter[0]["items"][0]["production"] = true;
+  for (const char *f : {"type", "production", "environment", "service"}) filter[0]["items"][0][f] = true;
   JsonDocument doc;
-  const DeserializationError err = deserializeJson(doc, http.getStream(), DeserializationOption::Filter(filter));
-  http.end();
-  if (err) {
-    Serial.printf("goliash: bad JSON (%s)\n", err.c_str());
-    state = Status::UNREACHABLE;
-    return;
-  }
-  state = Status::OK;
+  if (!fetch(String("/api/v1/notifications/sent?since=") + since, doc, &filter)) return;
 
   // Newest first
   int64_t newest = last_ms;
   int fresh = 0;
   const char *title = nullptr;
-  bool any = false;
   AlertLevel level = AlertLevel::GOOD;
   for (JsonObject m : doc.as<JsonArray>()) {
     const int64_t t = parseTime(m["sent_at"]);
     if (t > newest) newest = t;
-    if (last_ms && t > last_ms) {
+    AlertLevel l;
+    if (last_ms && t > last_ms && judge(m["items"], l)) {
       if (!title) title = m["title"] | "";
+      level = fresh ? std::max(level, l) : l;
       fresh++;
-      for (JsonObjectConst item : m["items"].as<JsonArrayConst>()) {
-        level = any ? std::max(level, levelOf(item)) : levelOf(item);
-        any = true;
-      }
     }
   }
   const bool first = last_ms == 0;
@@ -168,13 +213,24 @@ void poll() {
   // Nothing sent yet and no clock: stay in "learn" mode rather than ask for everything since 1970
   last_ms = newest ? newest : (now > 1700000000 ? int64_t(now) * 1000 : 0);
   if (first || !fresh) return;
+  queue(title, fresh, level);
+}
 
-  Alert a;
-  a.count = fresh > 99 ? 99 : fresh;
-  a.level = any ? level : AlertLevel::INFO;
-  foldAscii(title, a.title, sizeof a.title);
-  Serial.printf("goliash: %d new, \"%s\"\n", fresh, a.title);
-  xQueueSend(alerts, &a, 0);
+void pollSummary() {
+  JsonDocument doc;
+  if (!fetch("/api/v1/summary", doc, nullptr)) return;
+  Summary s;
+  s.valid = true;
+  foldAscii(doc["workspace"] | "", s.workspace, sizeof s.workspace);
+  s.services = doc["services"] | 0;
+  s.drifting = doc["drifting"] | 0;
+  s.updates = doc["updates"] | 0;
+  s.exploited = doc["exploited"] | 0;
+  s.stale = doc["stale_targets"] | 0;
+  s.at_ms = millis();
+  portENTER_CRITICAL(&summary_lock);
+  last_summary = s;
+  portEXIT_CRITICAL(&summary_lock);
 }
 
 void task(void *) {
@@ -185,11 +241,18 @@ void task(void *) {
   configTzTime(GOLI_TZ, "pool.ntp.org", "time.google.com");
   state = Status::CONNECTING;
   const uint32_t started = millis();
-  uint32_t next_ota = OTA_FIRST_CHECK_S * 1000UL;
+  uint32_t next_ota = OTA_FIRST_CHECK_S * 1000UL, next_summary = 0;
   for (;;) {
     if (WiFi.status() == WL_CONNECTED) {
-      if (settings::hasGoliash()) poll();
-      else state = Status::OK;
+      if (!settings::hasGoliash()) {
+        state = Status::OK;
+      } else {
+        if (int32_t(millis() - next_summary) >= 0) {
+          pollSummary();
+          next_summary = millis() + GOLIASH_SUMMARY_S * 1000UL;
+        }
+        if (!cfg.push) poll();  // with webhooks, Goliash tells Goli itself
+      }
       if (int32_t(millis() - next_ota) >= 0) {
         const bool ok = ota::check();  // restarts Goli when it installs an update
         next_ota = millis() + (ok ? OTA_EVERY_H * 3600000UL : 3600000UL);
@@ -206,13 +269,38 @@ void task(void *) {
 bool configured() { return settings::hasWifi(); }
 
 void begin() {
-  alerts = xQueueCreate(4, sizeof(Alert));
+  if (!alerts) alerts = xQueueCreate(4, sizeof(Alert));
   if (configured()) xTaskCreatePinnedToCore(task, "goli_net", 12288, nullptr, 1, nullptr, 0);
 }
 
 Status status() { return state; }
 
 bool takeAlert(Alert &out) { return alerts && xQueueReceive(alerts, &out, 0) == pdTRUE; }
+
+bool pushMessage(JsonObjectConst msg) {
+  AlertLevel level;
+  JsonArrayConst items = msg["items"];
+  if (!alerts || !judge(items, level)) return false;
+  char title[96];
+  if (items.size() == 1) snprintf(title, sizeof title, "%s", (const char *)(items[0]["text"] | "Goliash"));
+  else snprintf(title, sizeof title, "%u updates in %s", unsigned(items.size()), (const char *)(msg["workspace"] | "Goliash"));
+  queue(title, 1, level);
+  return true;
+}
+
+bool pushAlert(const char *title, AlertLevel level) {
+  if (!alerts) return false;
+  if (settings::get().min_level >= int(AlertLevel::CRITICAL) && level != AlertLevel::CRITICAL) return false;
+  queue(title, 1, level);
+  return true;
+}
+
+bool summary(Summary &out) {
+  portENTER_CRITICAL(&summary_lock);
+  out = last_summary;
+  portEXIT_CRITICAL(&summary_lock);
+  return out.valid;
+}
 
 bool quietHours() {
   const time_t now = time(nullptr);

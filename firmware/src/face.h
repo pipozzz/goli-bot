@@ -3,7 +3,7 @@
 #include <lvgl.h>
 
 // Goli's expressions. TIRED is his resting face: heavy lids, worried brows, wavy mouth.
-enum class Mood { TIRED, HAPPY, SURPRISED, DIZZY, DROWSY, ASLEEP, WINK, ALARMED };
+enum class Mood { TIRED, HAPPY, SURPRISED, DIZZY, DROWSY, ASLEEP, WINK, ALARMED, FOCUSED, WINCE };
 
 // How much a Goliash alert matters: an agent came back (GOOD), something changed (INFO),
 // or something is broken or vulnerable (CRITICAL).
@@ -19,6 +19,7 @@ class Face {
   void setMood(Mood mood, uint32_t hold_ms = 0);  // hold_ms > 0: return to the base mood afterwards
   void setBaseMood(Mood mood);
   Mood mood() const { return mood_; }
+  bool held() const { return mood_until_ != 0; }  // a passing mood (setMood with hold_ms) is showing
 
   void blink();
   void setTilt(float x, float y) { tilt_x_ = x; tilt_y_ = y; }  // -1..1, from the IMU
@@ -31,6 +32,10 @@ class Face {
   void showStatus(const char *text);  // small grey hint at the bottom; nullptr hides it
   // Battery icon at the top, beside the badge: shown while charging or when low; percent < 0 hides it.
   void showBattery(int percent, bool charging);
+  // Night clock under his closed eyes while he sleeps ("23:41"); nullptr hides it.
+  void setClock(const char *hhmm);
+  // Focus mode: a ring around the screen that shrinks, and the minutes left; remaining_s < 0 hides it.
+  void setFocus(int remaining_s, int total_s);
   int unseen() const { return unseen_; }
 
  private:
@@ -59,6 +64,8 @@ class Face {
   Eye eyes_[2];
   lv_obj_t *bridge_ = nullptr, *mouth_ = nullptr, *cheeks_[2] = {}, *zzz_ = nullptr;
   lv_obj_t *badge_ = nullptr, *badge_txt_ = nullptr, *title_ = nullptr, *status_ = nullptr, *battery_ = nullptr;
+  lv_obj_t *clock_ = nullptr, *focus_arc_ = nullptr, *focus_txt_ = nullptr;
+  bool clock_on_ = false;
   int unseen_ = 0;
   AlertLevel level_ = AlertLevel::GOOD;
   uint32_t title_until_ = 0;

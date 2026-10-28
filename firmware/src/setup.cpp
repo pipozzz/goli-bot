@@ -6,6 +6,7 @@
 #include <WiFi.h>
 #include <lvgl.h>
 
+#include "api.h"
 #include "config.h"
 #include "improv.h"
 #include "settings.h"
@@ -49,6 +50,14 @@ void page() {
   html.replace("{{QTO}}", String(s.quiet_to));
   html.replace("{{OTA}}", s.auto_update ? "checked" : "");
   html.replace("{{VERSION}}", GOLI_VERSION);
+  html.replace("{{LVL0}}", s.min_level < 2 ? "selected" : "");
+  html.replace("{{LVL2}}", s.min_level >= 2 ? "selected" : "");
+  html.replace("{{PROD}}", s.prod_only ? "checked" : "");
+  html.replace("{{SVCS}}", esc(s.services));
+  html.replace("{{PUSH}}", s.push ? "checked" : "");
+  html.replace("{{MIC}}", s.listen ? "checked" : "");
+  html.replace("{{HOST}}", api::hostname());
+  html.replace("{{KEY}}", esc(s.api_key));
   server.send(200, "text/html; charset=utf-8", html);
 }
 
@@ -84,6 +93,13 @@ void saveForm() {
   s.quiet_from = constrain(server.arg("qfrom").toInt(), 0, 23);
   s.quiet_to = constrain(server.arg("qto").toInt(), 0, 23);
   s.auto_update = server.hasArg("ota");
+  s.min_level = server.arg("minlvl").toInt() >= 2 ? 2 : 0;
+  s.prod_only = server.hasArg("prod");
+  s.services = server.arg("svcs");
+  s.services.trim();
+  s.push = server.hasArg("push");
+  s.listen = server.hasArg("mic");
+  if (server.hasArg("newkey")) settings::newKey();
   settings::save();
   server.send(200, "text/html; charset=utf-8", kSavedPage);
   ui.showSaved();

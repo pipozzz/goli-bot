@@ -8,8 +8,8 @@ class SelfTestUi {
   void begin(lv_obj_t *screen, const char *version);
   void setTouch(bool down, int x, int y);   // raw panel coordinates
   void setTilt(float roll, float pitch);     // -1..1
-  void setLine(int row, const char *text, bool ok);  // rows: 0 touch, 1 tilt, 2 sound, 3 Wi-Fi, 4 battery
+  void setLine(int row, const char *text, bool ok);  // rows: 0 touch, 1 tilt, 2 sound, 3 Wi-Fi, 4 battery, 5 mic
 
  private:
-  lv_obj_t *rows_[5] = {}, *dot_ = nullptr, *bubble_ = nullptr;
+  lv_obj_t *rows_[6] = {}, *dot_ = nullptr, *bubble_ = nullptr;
 };

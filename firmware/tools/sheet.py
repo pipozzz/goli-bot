@@ -5,7 +5,7 @@ import os
 from PIL import Image, ImageDraw
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-files = sorted(f for f in glob.glob(os.path.join(HERE, "snapshots", "*.ppm")) if "setup_" not in f and "selftest" not in f)
+files = sorted(f for f in glob.glob(os.path.join(HERE, "snapshots", "*.ppm")) if not any(k in f for k in ("setup_", "selftest", "page_")))
 size, pad, cols = 466, 24, 4
 rows = (len(files) + cols - 1) // cols
 sheet = Image.new("RGB", (cols * (size + pad) + pad, rows * (size + pad + 30) + pad), "#1b1c28")
@@ -30,6 +30,16 @@ if os.path.exists(test):
     img.paste(Image.open(test), (0, 0), mask)
     out = os.path.join(HERE, "..", "docs", "selftest.png")
     img.save(out)
+    print("wrote", os.path.normpath(out))
+
+# The swipe pages side by side
+pages = sorted(glob.glob(os.path.join(HERE, "snapshots", "page_*.ppm")))
+if pages:
+    row = Image.new("RGB", (len(pages) * (size + pad) - pad, size), "#1b1c28")
+    for i, f in enumerate(pages):
+        row.paste(Image.open(f), (i * (size + pad), 0), mask)
+    out = os.path.join(HERE, "..", "docs", "pages.png")
+    row.save(out)
     print("wrote", os.path.normpath(out))
 
 # The setup screens side by side

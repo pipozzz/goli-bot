@@ -20,7 +20,7 @@ textarea{min-height:90px;font:12px ui-monospace,monospace}
 input[type=range]{padding:0;accent-color:var(--accent)}
 label.check{display:flex;gap:10px;align-items:center;color:var(--ink)}input[type=checkbox]{width:auto;margin:0;accent-color:var(--accent)}
 small{display:block;color:var(--muted);font-size:12.5px;margin-top:4px}
-code{background:var(--bg);padding:1px 5px;border-radius:5px}
+code{background:var(--bg);padding:1px 5px;border-radius:5px;word-break:break-all}
 button{width:100%;padding:13px;border:0;border-radius:12px;background:var(--accent);color:#fff;font:600 17px system-ui;cursor:pointer}
 details{margin:0 0 10px}summary{cursor:pointer;color:var(--muted);font-size:14px}
 </style></head><body><main>
@@ -40,11 +40,29 @@ details{margin:0 0 10px}summary{cursor:pointer;color:var(--muted);font-size:14px
 <label>CA certificate, PEM<textarea name="ca" placeholder="-----BEGIN CERTIFICATE-----">{{CA}}</textarea>
 <small>Leave empty to skip the certificate check.</small></label></details>
 </fieldset>
+<fieldset><legend>Alerts</legend>
+<label>Ring for<select name="minlvl"><option value="0" {{LVL0}}>everything</option><option value="2" {{LVL2}}>only critical (agent down, vulnerability, prod drift)</option></select></label>
+<label class="check"><input name="prod" type="checkbox" {{PROD}}>Only production</label>
+<label>Only these services<input name="svcs" value="{{SVCS}}" placeholder="all services" autocapitalize="none" autocomplete="off">
+<small>Comma-separated, e.g. <code>payments-api, checkout</code></small></label>
+<label class="check"><input name="push" type="checkbox" {{PUSH}}>Goliash sends alerts to me (instant)</label>
+<small style="margin:-4px 0 10px">In Goliash add a <b>Webhook</b> channel with the URL <code>http://{{HOST}}.local/notify</code>
+(or my IP) and the secret below. Your Goliash must be able to reach me on your network.</small>
+</fieldset>
+<fieldset><legend>Ring me from anything</legend>
+<label>Key<input value="{{KEY}}" readonly onclick="this.select()"></label>
+<small style="margin:-4px 0 10px">Scripts, CI, Home Assistant:<br>
+<code>curl -H "Authorization: Bearer {{KEY}}" -H "Content-Type: application/json" -d '{"title":"Build failed","level":"critical"}' http://{{HOST}}.local/notify</code><br>
+Levels: <code>info</code>, <code>critical</code>, <code>good</code>.</small>
+<label class="check"><input name="newkey" type="checkbox">Make a new key (the old one stops working)</label>
+</fieldset>
 <fieldset><legend>Goli</legend>
 <label>Volume <output id="v">{{VOL}}</output>%<input name="vol" type="range" min="0" max="100" step="5" value="{{VOL}}" oninput="v.value=this.value"></label>
 <div class="row"><label>Quiet from<input name="qfrom" type="number" min="0" max="23" value="{{QFROM}}"></label>
 <label>until<input name="qto" type="number" min="0" max="23" value="{{QTO}}"></label></div>
 <small style="margin:-4px 0 10px">No sounds during these hours; alerts still show on my face.</small>
+<label class="check"><input name="mic" type="checkbox" {{MIC}}>Listen for claps and noise</label>
+<small style="margin:-4px 0 10px">Only loudness, measured on me. Nothing is recorded or sent.</small>
 <label class="check"><input name="ota" type="checkbox" {{OTA}}>Install new versions of me by myself</label>
 <small style="margin:-4px 0 10px">Once a day from the official releases. I'm {{VERSION}}.</small>
 </fieldset>

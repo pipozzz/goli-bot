@@ -29,22 +29,22 @@ void SelfTestUi::begin(lv_obj_t *screen, const char *version) {
   lv_obj_set_style_text_font(title, &lv_font_montserrat_28, 0);
   lv_obj_set_style_text_color(title, lv_color_hex(kLight), 0);
   lv_label_set_text_fmt(title, "Self-test  %s", version);
-  lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 60);
+  lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 58);
 
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 6; i++) {
     rows_[i] = lv_label_create(screen);
     lv_obj_set_style_text_font(rows_[i], &lv_font_montserrat_28, 0);
     lv_obj_set_style_text_color(rows_[i], lv_color_white(), 0);
     lv_obj_set_width(rows_[i], 340);
     lv_obj_set_style_text_align(rows_[i], LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_align(rows_[i], LV_ALIGN_TOP_MID, 0, 120 + 46 * i);
+    lv_obj_align(rows_[i], LV_ALIGN_TOP_MID, 0, 108 + 40 * i);
     lv_label_set_text(rows_[i], "");
   }
   lv_obj_t *hint = lv_label_create(screen);
   lv_obj_set_style_text_font(hint, &lv_font_montserrat_14, 0);
   lv_obj_set_style_text_color(hint, lv_color_hex(0x9a9fb8), 0);
   lv_label_set_text(hint, "tap = ding    hold 3 s = exit");
-  lv_obj_align(hint, LV_ALIGN_BOTTOM_MID, 0, -50);
+  lv_obj_align(hint, LV_ALIGN_BOTTOM_MID, 0, -36);
 
   bubble_ = lv_obj_create(screen);
   lv_obj_remove_style_all(bubble_);
@@ -74,11 +74,11 @@ void SelfTestUi::setTouch(bool down, int x, int y) {
 }
 
 void SelfTestUi::setTilt(float roll, float pitch) {
-  lv_obj_set_pos(bubble_, kC - 15 + int(roll * 150), kC + 130 - 15 + int(pitch * 40));
+  lv_obj_set_pos(bubble_, kC - 15 + int(roll * 140), kC + 150 - 15 + int(pitch * 25));
 }
 
 void SelfTestUi::setLine(int row, const char *text, bool ok) {
-  if (row < 0 || row >= 5) return;
+  if (row < 0 || row >= 6) return;
   lv_label_set_text(rows_[row], text);
   lv_obj_set_style_text_color(rows_[row], lv_color_hex(ok ? 0xffffff : kBad), 0);
 }

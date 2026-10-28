@@ -80,18 +80,45 @@ GFX Library for Arduino, SensorLib for touch and IMU, Espressif's ES8311 codec d
 | something critical (agent gone quiet, vulnerability, production drift...) | **ding-ding**, alarmed face, red badge |
 | good news (an agent is back, a drift was resolved) | chirp, happy face, green badge |
 | tap the face | boop: surprised, then happy with blushing cheeks; also marks alerts as seen |
-| double tap | wink |
+| 2 quick taps | wink |
+| 3 quick taps | focus mode on / off: 25 minutes, a ring counts down, only critical alerts ring; happy when it's over |
 | 5 quick taps | setup mode (QR code on the screen) |
+| 10 quick taps | demo mode for a booth (any tap stops it) |
+| swipe across the face | Goliash overview → big clock → Goli's status → back to the face |
 | finger resting on / stroking the face | petting: blissful closed eyes |
+| clap | marks alerts as seen (wink), or just startles him |
+| loud noise for a while | winces |
 | tilt him | pupils roll with the tilt |
 | shake him | dizzy, pupils spinning, wobbly sound |
 | bump or pick him up | surprised |
-| 1 min idle → 5 min idle, or lying flat | drowsy → asleep with a yawn (screen dims, "z Z", breathing) |
+| 1 min idle → 5 min idle, or lying flat | drowsy → asleep with a yawn (screen dims, "z Z", breathing, the time under his eyes) |
 | hold a finger still for 3 s | turns the face by 90° (saved): use it once after assembly |
 | finger on the face while he starts | self-test screen (see *Checking the assembly*) |
 | battery low, or charging | battery icon next to the bell |
 
 The whole face drifts by a few pixels over minutes so the AMOLED does not burn in.
+
+### Pages
+
+![Swipe pages](docs/pages.png)
+
+Swipe across his face for **Goliash at a glance** (drifting services, updates waiting, updates that fix
+exploited vulnerabilities, stale targets; from `GET /api/v1/summary` every 5 minutes), a **big clock**, and
+**Goli's status** (version, IP, Wi-Fi, Goliash connection, battery). A tap or 30 s goes back to the face.
+
+The time comes from NTP and is kept by the board's RTC, so the clock is right after a restart even
+before Wi-Fi is up.
+
+### Ears
+
+The board has two microphones. Goli only measures how loud it is, on the device; nothing is recorded or
+sent, and he ignores his own sounds. A clap marks alerts as seen; a noisy room makes him wince.
+Turn it off on the setup page.
+
+### Demo mode
+
+Tap him 10 times: he loops through his faces and a few made-up Goliash alerts (a deploy, a critical
+drift, an agent coming back) with sounds, no Wi-Fi needed. Any tap stops it. Made for a booth.
 
 ### Installing from the browser
 
@@ -193,6 +220,56 @@ shows. Each message newer than the last one he saw rings once. The first poll af
 where things stand, so he doesn't ring for old news. If you leave the certificate field empty, the
 Goliash certificate is not checked.
 
+**Which alerts ring** is up to you on the setup page: everything or only critical ones, only production,
+only some services (comma-separated). Items without an environment or service, like an agent going
+quiet, always pass the production and service filters.
+
+**Instant alerts with a webhook:** if your Goliash can reach Goli on your network, add a *Webhook*
+channel in Goliash with the URL `http://goli-xxxx.local/notify` (or his IP; the status page shows both)
+and Goli's key as the secret, point a notify rule at it, and tick *Goliash sends alerts to me* on the setup page. Goli checks the
+`X-Goliash-Signature` on every request and stops polling for notifications. He still asks for the summary
+every 5 minutes, which also tells him the token works. (Goliash in Docker may not resolve `.local`
+names: use the IP then, and give Goli a fixed address in your router.)
+
+### Ring Goli from anything
+
+Goli listens on your network: `POST /notify` with a JSON `title` and an optional `level`
+(`info`, `critical` or `good`), and his key from the setup page.
+
+```bash
+curl -H "Authorization: Bearer <key>" -H "Content-Type: application/json" \
+  -d '{"title":"nightly build failed","level":"critical"}' http://goli-xxxx.local/notify
+```
+
+He answers `202` with `ringing`, or `filtered out` when *only critical* is on and it isn't; without the
+JSON content type he answers `415`. `GET /status`
+returns his version, Wi-Fi signal and Goliash connection, without secrets.
+
+From GitHub Actions on a self-hosted runner in the same network:
+
+```yaml
+- if: failure()
+  run: |
+    curl -fsS -H "Authorization: Bearer ${{ secrets.GOLI_KEY }}" -H "Content-Type: application/json" \
+      -d '{"title":"${{ github.repository }}: ${{ github.workflow }} failed","level":"critical"}' \
+      http://goli-xxxx.local/notify
+```
+
+From Home Assistant (`configuration.yaml`), then call `rest_command.goli` from any automation:
+
+```yaml
+rest_command:
+  goli:
+    url: http://goli-xxxx.local/notify
+    method: post
+    headers:
+      Authorization: !secret goli_bearer   # "Bearer <key>"
+    content_type: application/json
+    payload: '{"title": "{{ title }}", "level": "{{ level | default(''info'') }}"}'
+```
+
+Titles show in ASCII; common accented letters are folded (č → c).
+
 Developers can pre-fill the settings at build time: copy `firmware/include/secrets.example.h` to `secrets.h`
 (git-ignored). It is only used while nothing has been saved on the device.
 
@@ -218,6 +295,8 @@ The display's mechanical drawing is in `docs/waveshare-amoled-1.75-dimensions.jp
 | Firmware (`firmware/`), web installer (`web/`), CI and the Python tools | [MIT](LICENSE) |
 | 3D model (`stl/`, `goli_bot.py` and what it generates, `viewer.html`), the Goli character, renders and artwork in `docs/` | [CC BY-NC-SA 4.0](LICENSE-MODEL.txt) |
 | ES8311 codec driver (`firmware/lib/es8311/`) | Apache-2.0, © Espressif Systems |
+| Clock digits (`firmware/src/font_clock.c`, rendered from Montserrat) | SIL Open Font License 1.1 |
+| ES7210 register sequence in `firmware/src/mic.cpp` | follows Espressif's esp_codec_dev driver, Apache-2.0 |
 
 Print, remix and share Goli for non-commercial use: credit "Goli desk bot by Peter Gonda" with a link to this
 repository and share remixes under the same license. Selling prints or remixes needs written permission.

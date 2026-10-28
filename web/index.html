@@ -119,6 +119,21 @@
   <h2>What he does</h2>
   <img class="faces" src="img/faces.png" alt="All of Goli's expressions: tired, happy, surprised, dizzy, drowsy, asleep, wink, alert">
 
+  <h2>Swipe for more</h2>
+  <img class="faces" src="img/pages.png" alt="Goliash overview, a big clock and Goli's status">
+  <p style="margin-top:12px">Swipe across his face for Goliash at a glance, a big clock and how he is doing. Tap him
+    3 times for 25 minutes of focus, 10 times for a demo loop at your booth.</p>
+
+  <h2>Ring him from anything</h2>
+  <div class="card">
+    <p>Goli listens on your network. Send him a title and a level from a script, CI or Home Assistant, with
+      the key from his setup page:</p>
+    <pre style="white-space:pre-wrap;word-break:break-all;margin:0;font-size:.85rem">curl -H "Authorization: Bearer &lt;key&gt;" -H "Content-Type: application/json" \
+  -d '{"title":"nightly build failed","level":"critical"}' http://goli-xxxx.local/notify</pre>
+    <p style="margin-top:12px">Your own Goliash can also push alerts to him the instant they happen, with a signed
+      webhook.</p>
+  </div>
+
   <h2>Build one</h2>
   <p>Every part prints on a Bambu Lab A1 mini. The STL files, parts list and assembly steps are in the
     <a href="https://github.com/pipozzz/goli-bot">GitHub repository</a>. Turn him around in the

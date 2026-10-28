@@ -6,6 +6,7 @@
 
 #include "config.h"
 #include "face.h"
+#include "screens.h"
 #include "selftest_ui.h"
 #include "setup_ui.h"
 
@@ -66,6 +67,7 @@ int main() {
       {Mood::DIZZY, "04_dizzy", false},      {Mood::WINK, "05_wink", false},       {Mood::TIRED, "06_petting", true},
       {Mood::DROWSY, "07_drowsy", false},    {Mood::ASLEEP, "08_asleep", false},   {Mood::SURPRISED, "09_goliash", false},
       {Mood::ALARMED, "10_critical", false}, {Mood::HAPPY, "11_good news", false}, {Mood::TIRED, "12_low battery", false},
+      {Mood::FOCUSED, "13_focus", false},    {Mood::WINCE, "14_too loud", false},  {Mood::ASLEEP, "15_night clock", false},
   };
   for (auto &s : shots) {
     if (!strcmp(s.name, "09_goliash")) face.showAlert("staging: payments-api 1.4.2 deployed", 1, AlertLevel::INFO);
@@ -78,6 +80,12 @@ int main() {
       face.clearAlert();
       face.showBattery(12, false);
     }
+    if (!strcmp(s.name, "13_focus")) {
+      face.showBattery(-1, false);
+      face.setFocus(17 * 60 + 42, 25 * 60);
+    }
+    if (!strcmp(s.name, "14_too loud")) face.setFocus(-1, 0);
+    if (!strcmp(s.name, "15_night clock")) face.setClock("23:41");
     face.setPetting(s.pet);
     face.setMood(s.m);
     run(face, 1200);
@@ -86,6 +94,20 @@ int main() {
     save(s.name);
     printf("saved %s\n", s.name);
   }
+  // Swipe pages, on top of the face
+  Screens screens;
+  screens.begin(lv_scr_act());
+  screens.setOverview("acme", 42, 2, 7, 1, 0, "3 min ago");
+  screens.setClock("09:41", "Wed 28 Oct");
+  screens.setStatus("v0.2.0\n192.168.1.42\n-58 dBm\nGoliash: ok\nbattery 87%");
+  const char *pages[] = {"", "page_1_overview", "page_2_clock", "page_3_status"};
+  for (int p = 1; p < Screens::COUNT; p++) {
+    screens.show(p);
+    lv_obj_invalidate(lv_scr_act());
+    lv_refr_now(nullptr);
+    save(pages[p]);
+  }
+
   // Self-test screen
   SelfTestUi test;
   test.begin(lv_scr_act(), "v0.1.0");
@@ -94,6 +116,7 @@ int main() {
   test.setLine(2, "sound: ding #2", true);
   test.setLine(3, "Wi-Fi: -58 dBm", true);
   test.setLine(4, "power: no PMU", false);
+  test.setLine(5, "mic: -52 dB", true);
   test.setTilt(0.12f, -0.03f);
   test.setTouch(true, 214, 288);
   lv_refr_now(nullptr);

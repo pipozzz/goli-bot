@@ -35,6 +35,7 @@
 // Goliash notifications. Wi-Fi, Goliash address, token, volume and quiet hours are set up
 // from a phone (setup mode); include/secrets.h can pre-fill them for developer builds.
 #define GOLIASH_POLL_S 30
+#define GOLIASH_SUMMARY_S 300   // the overview screen's numbers
 #define GOLI_TZ "CET-1CEST,M3.5.0,M10.5.0/3"   // POSIX TZ for Bratislava / Prague / Vienna
 
 // Screen brightness (0-255). AMOLED: keep it moderate on a desk, it also limits burn-in.
@@ -64,8 +65,12 @@
 // Use it once after assembly if Goli looks sideways.
 #define ROTATE_HOLD_MS 3000
 
-// Tap the face this many times quickly to open setup mode again.
+// Tap the face this many times quickly: focus mode (on/off), setup mode, demo mode.
+#define FOCUS_TAPS 3
 #define SETUP_TAPS 5
+#define DEMO_TAPS 10
+#define FOCUS_MIN 25            // a pomodoro
+#define PAGE_TIMEOUT_MS 30000   // swipe pages go back to the face after this long untouched
 // Setup mode gives up after this long when Goli already has a working configuration.
 #define SETUP_TIMEOUT_MS (10UL * 60 * 1000)
 

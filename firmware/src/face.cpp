@@ -111,6 +111,35 @@ void Face::begin(lv_obj_t *screen) {
   lv_obj_set_pos(status_, kC - 120, 420);
   lv_obj_add_flag(status_, LV_OBJ_FLAG_HIDDEN);
 
+  clock_ = lv_label_create(root_);
+  lv_obj_set_width(clock_, 300);
+  lv_obj_set_style_text_align(clock_, LV_TEXT_ALIGN_CENTER, 0);
+  lv_obj_set_style_text_font(clock_, &lv_font_montserrat_48, 0);
+  lv_obj_set_style_text_color(clock_, lv_color_hex(0x5a66c0), 0);  // soft: the screen is dimmed at night
+  lv_obj_set_pos(clock_, kC - 150, 362);
+  lv_obj_add_flag(clock_, LV_OBJ_FLAG_HIDDEN);
+
+  focus_arc_ = lv_arc_create(root_);
+  lv_obj_remove_style_all(focus_arc_);
+  lv_obj_clear_flag(focus_arc_, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_set_size(focus_arc_, LCD_SIZE - 12, LCD_SIZE - 12);
+  lv_obj_set_pos(focus_arc_, 6, 6);
+  lv_arc_set_rotation(focus_arc_, 270);
+  lv_arc_set_bg_angles(focus_arc_, 0, 360);
+  lv_arc_set_range(focus_arc_, 0, 1000);
+  lv_obj_set_style_arc_width(focus_arc_, 8, LV_PART_INDICATOR);
+  lv_obj_set_style_arc_color(focus_arc_, lv_color_hex(kBlue), LV_PART_INDICATOR);
+  lv_obj_set_style_arc_rounded(focus_arc_, true, LV_PART_INDICATOR);
+  lv_obj_add_flag(focus_arc_, LV_OBJ_FLAG_HIDDEN);
+
+  focus_txt_ = lv_label_create(root_);
+  lv_obj_set_width(focus_txt_, 200);
+  lv_obj_set_style_text_align(focus_txt_, LV_TEXT_ALIGN_CENTER, 0);
+  lv_obj_set_style_text_font(focus_txt_, &lv_font_montserrat_28, 0);
+  lv_obj_set_style_text_color(focus_txt_, lv_color_hex(kLight), 0);
+  lv_obj_set_pos(focus_txt_, kC - 100, 392);
+  lv_obj_add_flag(focus_txt_, LV_OBJ_FLAG_HIDDEN);
+
   battery_ = lv_label_create(root_);
   lv_obj_set_style_text_font(battery_, &lv_font_montserrat_28, 0);
   lv_obj_set_pos(battery_, kC + 52, 42);  // top, right of the alert badge
@@ -184,6 +213,12 @@ void Face::targetFor(Mood m, Shape &s) const {
       break;
     case Mood::ALARMED:  // wide eyes, tiny pupils, brows up in a knot, mouth trembling
       s.lid = 0.f; s.pupil = 0.5f; s.brow_tilt = 2.2f; s.brow_lift = 20.f; s.mouth = -1.7f;
+      break;
+    case Mood::FOCUSED:  // steady eyes, brows down and in: working
+      s.lid = 0.32f; s.pupil = 0.9f; s.brow_tilt = -0.7f; s.brow_lift = -2.f; s.mouth = 0.f;
+      break;
+    case Mood::WINCE:  // too loud: eyes squeezed, brows knotted
+      s.lid = 0.5f; s.lid_bottom = 0.4f; s.pupil = 0.7f; s.brow_tilt = 1.8f; s.brow_lift = -8.f; s.mouth = -1.3f;
       break;
   }
   if (petting_) {  // eyes closed in bliss, big blush
@@ -293,6 +328,8 @@ void Face::apply(uint32_t now) {
     lv_obj_add_flag(title_, LV_OBJ_FLAG_HIDDEN);
   }
 
+  if (mood_ == Mood::ASLEEP && clock_on_) lv_obj_clear_flag(clock_, LV_OBJ_FLAG_HIDDEN);
+  else lv_obj_add_flag(clock_, LV_OBJ_FLAG_HIDDEN);
   if (mood_ == Mood::ASLEEP) {
     lv_obj_clear_flag(zzz_, LV_OBJ_FLAG_HIDDEN);
     lv_obj_set_pos(zzz_, kC + 64, 46 + int(8.f * sinf(now / 700.f)));
@@ -342,6 +379,23 @@ void Face::showBattery(int percent, bool charging) {
   if (strcmp(lv_label_get_text(battery_), icon)) lv_label_set_text(battery_, icon);
   lv_obj_set_style_text_color(battery_, lv_color_hex(charging ? kGreen : kCheek), 0);
   lv_obj_clear_flag(battery_, LV_OBJ_FLAG_HIDDEN);
+}
+
+void Face::setClock(const char *hhmm) {
+  clock_on_ = hhmm != nullptr;
+  if (hhmm && strcmp(lv_label_get_text(clock_), hhmm)) lv_label_set_text(clock_, hhmm);
+}
+
+void Face::setFocus(int remaining_s, int total_s) {
+  if (remaining_s < 0 || total_s <= 0) {
+    lv_obj_add_flag(focus_arc_, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(focus_txt_, LV_OBJ_FLAG_HIDDEN);
+    return;
+  }
+  lv_arc_set_value(focus_arc_, int16_t(1000L * remaining_s / total_s));
+  lv_label_set_text_fmt(focus_txt_, "%d:%02d", remaining_s / 60, remaining_s % 60);
+  lv_obj_clear_flag(focus_arc_, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_clear_flag(focus_txt_, LV_OBJ_FLAG_HIDDEN);
 }
 
 void Face::drawMouth(uint32_t now) {

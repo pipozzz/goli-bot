@@ -18,6 +18,8 @@ I2SClass i2s;
 es8311_handle_t codec = nullptr;
 QueueHandle_t queue = nullptr;
 int volume = 0;
+volatile bool stopping = false;
+volatile uint32_t quiet_since = 0;  // millis() when the last sound ended; 0 = playing
 
 // One voice: a sum of decaying partials, optionally with a pitch glide.
 struct Partial {
@@ -104,10 +106,13 @@ void task(void *) {
     if (xQueueReceive(queue, &next, pos < 0 ? portMAX_DELAY : 0) == pdTRUE) {
       cur = next;
       pos = 0;
+      quiet_since = 0;
+      stopping = false;
       digitalWrite(AUDIO_PA_EN, HIGH);  // speaker amplifier on only while playing (no hiss)
     }
     if (pos < 0) continue;
-    const bool more = render(cur, pos, kChunk, mono);
+    const bool more = !stopping && render(cur, pos, kChunk, mono);
+    if (stopping) memset(mono, 0, sizeof mono);
     for (int i = 0; i < kChunk; i++) stereo[2 * i] = stereo[2 * i + 1] = mono[i];
     i2s.write((uint8_t *)stereo, sizeof stereo);
     pos += kChunk;
@@ -116,6 +121,8 @@ void task(void *) {
       memset(stereo, 0, sizeof stereo);
       for (int k = 0; k < 4; k++) i2s.write((uint8_t *)stereo, sizeof stereo);  // flush the DMA tail
       digitalWrite(AUDIO_PA_EN, LOW);
+      stopping = false;
+      quiet_since = millis() | 1;
     }
   }
 }
@@ -144,6 +151,7 @@ bool begin() {
   es8311_microphone_config(codec, false);
   setVolume(settings::get().volume);
 
+  quiet_since = 1;
   queue = xQueueCreate(4, sizeof(Sound));
   xTaskCreatePinnedToCore(task, "goli_sound", 4096, nullptr, 2, nullptr, 0);
   return true;
@@ -153,6 +161,16 @@ void play(Sound s) {
   if (!queue || volume == 0) return;
   xQueueReset(queue);
   xQueueSend(queue, &s, 0);
+}
+
+void stop() { stopping = true; }
+
+bool playing() { return quiet_since == 0 || millis() - quiet_since < 300; }
+
+bool readMic(int16_t *stereo, size_t frames) {
+  if (!queue) return false;
+  const size_t want = frames * 2 * sizeof(int16_t);
+  return i2s.readBytes((char *)stereo, want) == want;
 }
 
 void setVolume(int percent) {
