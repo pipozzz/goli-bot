@@ -5,3 +5,4 @@ __pycache__/
 .pio/
 firmware/snapshots/
 firmware/include/secrets.h
+site/

@@ -9,7 +9,7 @@ His whole face is a round AMOLED with an ESP32-S3 behind it, so the eyes, brows 
 |---|---|
 | ![exploded](docs/exploded.jpg) | ![back](docs/back.jpg) |
 
-Open `viewer.html` in a browser for an interactive 3D view with an exploded-assembly slider.
+**[Install the firmware from your browser](https://pipozzz.github.io/goli-bot/)** · **[3D viewer](https://pipozzz.github.io/goli-bot/viewer.html)** (also `viewer.html` here, with an exploded-assembly slider)
 
 **Status:** designed and checked in CAD, **not printed yet**. Print the bezel and bracket first (about 20 min)
 and test-fit them on the display before you print the body.
@@ -85,11 +85,32 @@ GFX Library for Arduino, SensorLib for touch and IMU, Espressif's ES8311 codec d
 
 The whole face drifts by a few pixels over minutes so the AMOLED does not burn in.
 
+### Installing from the browser
+
+No tools needed: open **<https://pipozzz.github.io/goli-bot/>** in Chrome or Edge on a computer, plug the
+board in by USB-C and click **Install**. The page is built by GitHub Actions from every commit to `main`.
+
+1. Use a USB-C cable that carries data. Pick the port (*USB JTAG/serial debug unit* or similar).
+2. On the first install, let it erase the board. For updates, don't erase: Goli keeps his settings.
+3. If no port shows up or it can't connect: hold **BOOT**, press and release **RESET**, release BOOT and try
+   again. Press RESET once more when it's done.
+4. Then set him up from your phone (below).
+
+Safari and phones can't flash (no Web Serial). Every build is also attached to its
+[Actions run](https://github.com/pipozzz/goli-bot/actions/workflows/firmware.yml) as `goli-firmware.bin`, a
+merged image for offset 0x0: `esptool.py --chip esp32s3 write_flash 0x0 goli-firmware.bin`.
+
+### Building it yourself
+
 ```bash
 cd firmware
 pio run -t upload        # board in USB-C; hold BOOT while plugging in if upload does not start
 pio device monitor
 ```
+
+The build also writes `.pio/build/goli/goli-firmware.bin` (`tools/merge_bin.py`). To try the installer page
+locally, run `web/build_site.sh` and serve `site/` with `python3 -m http.server -d site`; Web Serial works on
+`localhost`.
 
 `include/config.h` holds brightness, default volume, timezone, the idle timeouts and the tilt directions. If the pupils roll the wrong way
 when you tilt Goli, flip `TILT_ROLL_SIGN` / `TILT_PITCH_SIGN`.
