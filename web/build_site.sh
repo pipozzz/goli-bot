@@ -12,6 +12,8 @@ cp "$root/firmware/.pio/build/goli/goli-firmware.bin" "$out/firmware/"          
 cp "$root/firmware/.pio/build/goli/firmware.bin" "$out/firmware/goli-app.bin"   # app only, for Wi-Fi updates
 printf '{"version": "%s", "path": "firmware/goli-app.bin"}\n' "$version" > "$out/ota.json"
 cp "$root/viewer.html" "$out/viewer.html"
+# The browser simulator, when it was built (sim/build.sh)
+if [ -f "$root/sim/out/goli.wasm" ]; then mkdir -p "$out/sim" && cp "$root"/sim/out/{index.html,goli.js,goli.wasm} "$out/sim/"; fi
 cp "$root"/docs/{hero.jpg,faces.png,setup-screen.png,setup-page.jpg,selftest.png,pages.png,face-alert.jpg,face-critical.jpg,face-good.jpg} "$out/img/"
 sed -i.bak "s/__VERSION__/$version/g" "$out/manifest.json" "$out/index.html" && rm "$out"/*.bak
 echo "site in $out (firmware $version)"

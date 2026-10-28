@@ -13,7 +13,7 @@ His whole face is a round AMOLED with an ESP32-S3 behind it, so the eyes, brows 
 |---|---|
 | ![exploded](docs/exploded.jpg) | ![back](docs/back.jpg) |
 
-**[Install the firmware from your browser](https://pipozzz.github.io/goli-bot/)** · **[3D viewer](https://pipozzz.github.io/goli-bot/viewer.html)** (also `viewer.html` here, with an exploded-assembly slider)
+**[Try him in your browser](https://pipozzz.github.io/goli-bot/sim/)** · **[Install the firmware from your browser](https://pipozzz.github.io/goli-bot/)** · **[3D viewer](https://pipozzz.github.io/goli-bot/viewer.html)** (also `viewer.html` here, with an exploded-assembly slider)
 
 **Status:** designed and checked in CAD, **not printed yet**. Print the bezel and bracket first (about 20 min)
 and test-fit them on the display before you print the body.
@@ -123,6 +123,19 @@ Turn it off on the setup page.
 
 Tap him 10 times: he loops through his faces and a few made-up Goliash alerts (a deploy, a critical
 drift, an agent coming back) with sounds, no Wi-Fi needed. Any tap stops it. Made for a booth.
+
+### Simulator
+
+**<https://pipozzz.github.io/goli-bot/sim/>** runs Goli's firmware in the browser: `bot.cpp` (every
+gesture, mood, alert, focus, demo and page), the face and the sounds, compiled to WebAssembly with LVGL.
+The mouse is the finger; buttons stand in for Goliash alerts, the IMU (lean, nod, shake, bump, lay him
+down), the microphones and the battery. Only the hardware glue in `main.cpp` is left out.
+
+```bash
+pio run -e snapshot -d firmware   # fetches LVGL
+sim/build.sh                      # needs Emscripten (brew install emscripten)
+python3 -m http.server -d sim/out
+```
 
 ### Installing from the browser
 

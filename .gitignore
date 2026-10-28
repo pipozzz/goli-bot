@@ -6,3 +6,5 @@ __pycache__/
 firmware/snapshots/
 firmware/include/secrets.h
 site/
+sim/out/
+sim/.obj/

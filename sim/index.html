@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Goli Simulator</title>
+<meta name="description" content="Goli's real firmware face in your browser: the mouse is your finger.">
+<style>
+  :root {
+    --bg: #eef0f8; --panel: #ffffff; --ink: #2b2d42; --muted: #6b6f86; --line: #d9dcec;
+    --accent: #6c7ae0; --accent-ink: #ffffff; --body: #6c7ae0; --bezel: #2e3048;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14151f; --panel: #1e202e; --ink: #eceefa; --muted: #9a9fb8; --line: #34374d;
+      --accent: #8e99f0; --accent-ink: #14151f;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14151f; --panel: #1e202e; --ink: #eceefa; --muted: #9a9fb8; --line: #34374d;
+    --accent: #8e99f0; --accent-ink: #14151f;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.8rem; margin: 0; letter-spacing: -.02em; }
+  .lead { color: var(--muted); margin: 4px 0 20px; }
+  .lead a { color: var(--accent); }
+  .layout { display: grid; grid-template-columns: minmax(0, 520px) minmax(0, 1fr); gap: 24px; align-items: start; }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+
+  /* Goli's head around the screen */
+  .head { background: radial-gradient(circle at 35% 30%, #8e99f0, var(--body) 60%, #5563c8);
+    border-radius: 50%; padding: 7%; aspect-ratio: 1; position: relative; box-shadow: 0 18px 40px rgba(40, 44, 90, .25); }
+  .bezel { background: var(--bezel); border-radius: 50%; padding: 5%; height: 100%; }
+  canvas { display: block; width: 100%; height: 100%; border-radius: 50%; background: #000; touch-action: none;
+    cursor: pointer; transition: filter .4s; }
+  .start { position: absolute; inset: 0; display: grid; place-items: center; }
+  .start button { font: 600 16px system-ui; border: 0; border-radius: 999px; padding: 12px 22px;
+    background: var(--accent); color: var(--accent-ink); cursor: pointer; }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin-bottom: 14px; }
+  .panel h2 { font-size: .95rem; margin: 0 0 10px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .row + .row { margin-top: 8px; }
+  button.b { font: inherit; border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+    border-radius: 10px; padding: 7px 12px; cursor: pointer; }
+  button.b:hover { border-color: var(--accent); }
+  button.b[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .crit { border-left: 4px solid #e5484d !important; }
+  .info { border-left: 4px solid #6c7ae0 !important; }
+  .good { border-left: 4px solid #3fb27f !important; }
+  label { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+  input[type=range] { flex: 1; accent-color: var(--accent); min-width: 120px; }
+  input[type=text], select { flex: 1; min-width: 0; font: inherit; padding: 7px 10px; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+  td { padding: 3px 0; vertical-align: top; }
+  td:first-child { color: var(--muted); padding-right: 12px; white-space: nowrap; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: var(--bg);
+    padding: 10px 16px; border-radius: 10px; opacity: 0; transition: opacity .3s; pointer-events: none; max-width: 90vw; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Goli simulator</h1>
+  <p class="lead">The real firmware face, compiled to WebAssembly. Your mouse is a finger.
+    <a href="../">Install it on a real Goli</a> · <a href="https://github.com/pipozzz/goli-bot">GitHub</a></p>
+
+  <div class="layout">
+    <div>
+      <div class="head"><div class="bezel"><canvas id="screen" width="466" height="466" aria-label="Goli's face"></canvas></div>
+        <div class="start" id="start"><button>Wake Goli up</button></div></div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h2>Touch him</h2>
+        <table>
+          <tr><td>tap</td><td>boop, then happy; marks alerts as seen</td></tr>
+          <tr><td>2 / 3 taps</td><td>wink / focus mode on and off</td></tr>
+          <tr><td>5 / 10 taps</td><td>setup mode / demo loop</td></tr>
+          <tr><td>press and hold</td><td>petting; 3 s still turns the face</td></tr>
+          <tr><td>drag across</td><td>overview, clock, status pages</td></tr>
+        </table>
+      </div>
+
+      <div class="panel">
+        <h2>Goliash alerts</h2>
+        <div class="row"><input type="text" id="title" value="payments-api drift" aria-label="Alert title"></div>
+        <div class="row">
+          <button class="b info" data-alert="1">Something new</button>
+          <button class="b crit" data-alert="2">Critical</button>
+          <button class="b good" data-alert="0">Good news</button>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <label style="flex:1">Connection
+            <select id="hint">
+              <option value="">all good</option>
+              <option>no Wi-Fi - tap me 5x</option>
+              <option>Goliash token? tap 5x</option>
+              <option>Goliash unreachable</option>
+            </select></label>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Move him</h2>
+        <div class="row"><label style="flex:1">Lean <input type="range" id="roll" min="-30" max="30" value="0"></label></div>
+        <div class="row"><label style="flex:1">Nod <input type="range" id="pitch" min="-30" max="30" value="0"></label></div>
+        <div class="row">
+          <button class="b" id="shake">Shake</button>
+          <button class="b" id="bump">Bump</button>
+          <button class="b" id="flat" aria-pressed="false">Lay him down</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Ears and power</h2>
+        <div class="row">
+          <button class="b" id="clap">Clap</button>
+          <button class="b" id="noise" aria-pressed="false">Noisy room</button>
+        </div>
+        <div class="row">
+          <button class="b" id="battery" aria-pressed="false">On battery</button>
+          <button class="b" id="charging" aria-pressed="false">Charging</button>
+          <label style="flex:1">Level <input type="range" id="level" min="0" max="100" value="15"></label>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const canvas = document.getElementById('screen');
+const g = canvas.getContext('2d');
+const img = g.createImageData(466, 466);
+let audio = null, playing = null;
+
+function toast(text) {
+  const t = document.getElementById('toast');
+  t.textContent = text; t.classList.add('show');
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+var Module = {
+  onBrightness(level) { canvas.style.filter = `brightness(${Math.max(level, 8) / 170})`; },
+  onSetup() { toast('Setup mode: the real Goli shows a QR code for your phone here.'); },
+  onSound(pcm, rate) {
+    if (!audio) return;
+    const buf = audio.createBuffer(1, pcm.length, rate);
+    const ch = buf.getChannelData(0);
+    for (let i = 0; i < pcm.length; i++) ch[i] = pcm[i] / 32768;
+    if (playing) playing.stop();
+    playing = audio.createBufferSource(); playing.buffer = buf; playing.connect(audio.destination); playing.start();
+  },
+  onStopSound() { if (playing) playing.stop(); playing = null; },
+  onRuntimeInitialized() {
+    const fb = Module._sim_fb();
+    (function draw() {
+      if (Module._sim_take_dirty()) {
+        img.data.set(Module.HEAPU8.subarray(fb, fb + 466 * 466 * 4));
+        g.putImageData(img, 0, 0);
+      }
+      requestAnimationFrame(draw);
+    })();
+    wire();
+  },
+};
+
+function wire() {
+  // The mouse (or a finger on a phone) as Goli's touch panel
+  const pos = e => {
+    const r = canvas.getBoundingClientRect();
+    return [Math.round((e.clientX - r.left) / r.width * 466), Math.round((e.clientY - r.top) / r.height * 466)];
+  };
+  canvas.addEventListener('pointerdown', e => { canvas.setPointerCapture(e.pointerId); Module._sim_pointer(...pos(e), 1); });
+  canvas.addEventListener('pointermove', e => { if (e.buttons) Module._sim_pointer(...pos(e), 1); });
+  const up = e => Module._sim_pointer(...pos(e), 0);
+  canvas.addEventListener('pointerup', up);
+  canvas.addEventListener('pointercancel', up);
+
+  document.querySelectorAll('[data-alert]').forEach(b => b.onclick = () =>
+    Module.ccall('sim_alert', null, ['number', 'string'], [+b.dataset.alert, document.getElementById('title').value || 'Goliash']));
+  document.getElementById('hint').onchange = e => Module.ccall('sim_hint', null, ['string'], [e.target.value]);
+
+  const tilt = () => Module._sim_tilt(+document.getElementById('roll').value, +document.getElementById('pitch').value);
+  document.getElementById('roll').oninput = tilt;
+  document.getElementById('pitch').oninput = tilt;
+  document.getElementById('shake').onclick = () => Module._sim_shake();
+  document.getElementById('bump').onclick = () => Module._sim_bump();
+  document.getElementById('clap').onclick = () => Module._sim_clap();
+
+  const toggle = (id, fn) => {
+    const b = document.getElementById(id);
+    b.onclick = () => { const on = b.getAttribute('aria-pressed') !== 'true'; b.setAttribute('aria-pressed', on); fn(on); };
+  };
+  toggle('flat', on => Module._sim_flat(on ? 1 : 0));
+  toggle('noise', on => Module._sim_noise(on ? 1 : 0));
+  const power = () => {
+    const bat = document.getElementById('battery').getAttribute('aria-pressed') === 'true';
+    const chg = document.getElementById('charging').getAttribute('aria-pressed') === 'true';
+    Module._sim_power(bat || chg ? +document.getElementById('level').value : -1, chg ? 1 : 0, bat && !chg ? 1 : 0);
+  };
+  toggle('battery', power);
+  toggle('charging', power);
+  document.getElementById('level').oninput = power;
+}
+
+// Browsers only allow sound after a click: the first one also wakes the audio up
+document.getElementById('start').onclick = () => {
+  audio = new (window.AudioContext || window.webkitAudioContext)();
+  document.getElementById('start').remove();
+};
+</script>
+<script src="goli.js"></script>
+</body>
+</html>

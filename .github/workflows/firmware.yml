@@ -43,6 +43,11 @@ jobs:
           pio run -e snapshot
           .pio/build/snapshot/program
           python tools/sheet.py
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 4.0.10
+      - name: Build the browser simulator
+        run: sim/build.sh
       - name: Assemble the site
         run: web/build_site.sh site
       - uses: actions/upload-artifact@v4
