@@ -5,6 +5,10 @@ His whole face is a round AMOLED with an ESP32-S3 behind it, so the eyes, brows 
 
 ![Goli desk bot](docs/hero.jpg)
 
+| Something new | Something on fire | Good news |
+|---|---|---|
+| ![a deploy: ding](docs/face-alert.jpg) | ![a critical drift: ding-ding](docs/face-critical.jpg) | ![an agent is back: chirp](docs/face-good.jpg) |
+
 | Exploded | Back |
 |---|---|
 | ![exploded](docs/exploded.jpg) | ![back](docs/back.jpg) |

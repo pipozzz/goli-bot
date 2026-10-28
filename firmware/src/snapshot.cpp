@@ -70,11 +70,11 @@ int main() {
       {Mood::FOCUSED, "13_focus", false},    {Mood::WINCE, "14_too loud", false},  {Mood::ASLEEP, "15_night clock", false},
   };
   for (auto &s : shots) {
-    if (!strcmp(s.name, "09_goliash")) face.showAlert("staging: payments-api 1.4.2 deployed", 1, AlertLevel::INFO);
-    if (!strcmp(s.name, "10_critical")) face.showAlert("prod: payments-api drift detected", 3, AlertLevel::CRITICAL);
+    if (!strcmp(s.name, "09_goliash")) face.showAlert("checkout 2.4.1", 1, AlertLevel::INFO);
+    if (!strcmp(s.name, "10_critical")) face.showAlert("payments drift", 3, AlertLevel::CRITICAL);
     if (!strcmp(s.name, "11_good news")) {
       face.clearAlert();
-      face.showAlert("agent eu-west-1 is back", 1, AlertLevel::GOOD);
+      face.showAlert("eu-west is back", 1, AlertLevel::GOOD);
     }
     if (!strcmp(s.name, "12_low battery")) {
       face.clearAlert();

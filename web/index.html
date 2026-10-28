@@ -32,9 +32,7 @@
   p { margin: 0 0 12px; }
   a { color: var(--accent); }
   .lead { color: var(--muted); font-size: 1.1rem; }
-  .hero {
-    width: 100%; max-height: 420px; object-fit: cover; border-radius: 16px; margin: 20px 0 8px; display: block;
-  }
+  .hero { width: 100%; border-radius: 16px; margin: 20px 0 8px; display: block; }
   .card {
     background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 20px;
   }
@@ -52,6 +50,10 @@
   .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: center; }
   .pair img { width: 100%; border-radius: 12px; display: block; }
   .faces { width: 100%; border-radius: 12px; display: block; }
+  .trio { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 12px 0 0; }
+  .trio figure { margin: 0; }
+  .trio img { width: 100%; border-radius: 12px; display: block; }
+  .trio figcaption { color: var(--muted); font-size: .85rem; text-align: center; margin-top: 6px; }
   footer { margin-top: 48px; color: var(--muted); font-size: .9rem; }
   @media (max-width: 600px) { .pair { grid-template-columns: 1fr; } h1 { font-size: 1.8rem; } }
 </style>
@@ -61,7 +63,12 @@
   <h1>Goli desk bot</h1>
   <p class="lead">A printable desk robot of Goli, the Goliash mascot. His face is a round AMOLED that rings a
     desk bell when Goliash sends a notification.</p>
-  <img class="hero" src="img/hero.jpg" alt="Goli desk bot, a round lilac robot with an animated face">
+  <img class="hero" src="img/hero.jpg" alt="Goli desk bot, a round lilac robot smiling on his screen">
+  <div class="trio">
+    <figure><img src="img/face-alert.jpg" alt="Surprised face with a blue badge: a deploy"><figcaption>Something new: ding</figcaption></figure>
+    <figure><img src="img/face-critical.jpg" alt="Alarmed face with a red badge: a drift"><figcaption>On fire: ding-ding</figcaption></figure>
+    <figure><img src="img/face-good.jpg" alt="Happy face with a green badge: an agent is back"><figcaption>Good news: chirp</figcaption></figure>
+  </div>
 
   <h2>Install the firmware</h2>
   <div class="card install">
