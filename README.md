@@ -64,10 +64,41 @@ The belly, card and cheeks stand out in relief either way.
 
 ## Firmware
 
-Not written yet. Plan: Arduino + LVGL with the Waveshare demos as the base.
-- Draw Goli's face (glasses, sleepy lids, brows, wavy mouth) and animate blinking and looking around.
-- Use the touch screen to pet him and the IMU to detect taps and shakes.
-- Play a bell "ding" on the speaker for new alerts, pulled from Goliash over Wi-Fi.
+`firmware/` is a PlatformIO project (Arduino core 3 via pioarduino, LVGL 8.4, the CO5300 driver from
+GFX Library for Arduino, and SensorLib for touch and IMU).
+
+![Goli's faces](docs/faces.png)
+
+| Input | Goli |
+|---|---|
+| nothing happening | tired: heavy lids, worried brows, wavy mouth; blinks and glances around |
+| tap the face | boop: surprised, then happy with blushing cheeks |
+| double tap | wink |
+| finger resting on / stroking the face | petting: blissful closed eyes |
+| tilt him | pupils roll with the tilt |
+| shake him | dizzy, pupils spinning |
+| bump or pick him up | surprised |
+| 1 min idle → 5 min idle, or lying flat | drowsy → asleep (screen dims, "z Z", breathing) |
+| hold a finger still for 3 s | turns the face by 90° (saved): use it once after assembly |
+
+The whole face drifts by a few pixels over minutes so the AMOLED does not burn in.
+
+```bash
+cd firmware
+pio run -t upload        # board in USB-C; hold BOOT while plugging in if upload does not start
+pio device monitor
+```
+
+`include/config.h` holds brightness, the idle timeouts and the tilt directions. If the pupils roll the wrong way
+when you tilt Goli, flip `TILT_ROLL_SIGN` / `TILT_PITCH_SIGN`.
+
+Preview every expression without the board (renders `docs/faces.png`):
+
+```bash
+pio run -e snapshot && .pio/build/snapshot/program && python3 tools/sheet.py
+```
+
+Not done yet: sound (the ES8311 codec and the speaker) and Goliash alerts over Wi-Fi.
 
 ## Changing the design
 
