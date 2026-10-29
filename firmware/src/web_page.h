@@ -93,13 +93,14 @@ code{background:var(--bg);padding:1px 5px;border-radius:5px;word-break:break-all
 <label>URLs, one per line<textarea data-k="watch" placeholder="https://shop.example.com/health"></textarea>
 <small>Checked every minute; he is alarmed when one stops answering and happy when it's back.</small></label></div>
 <div class="card"><h2>Ring me from anything</h2><p class="sub">Scripts, CI, Home Assistant:</p><code id="curl"></code>
+<small style="margin-top:8px">Alertmanager, Grafana and Uptime Kuma work as they are: point their webhook at <code id="hookUrl"></code> (with the key as a Bearer header, or in the address).</small>
 <label class="check" style="margin-top:10px"><input type="checkbox" id="newkey">Make a new key (the old one stops working)</label></div>
 </section>
 
 <section data-tab="Day">
 <div class="card"><h2>Calendar</h2>
 <label>Secret iCal address<input data-k="ics" type="password" placeholder="unchanged" autocomplete="off">
-<small>Google: Settings &rarr; your calendar &rarr; Secret address in iCal format. Type <code>-</code> to remove.</small></label>
+<small>Google: Settings &rarr; your calendar &rarr; Secret address in iCal format. Several calendars: separate the addresses with spaces. Type <code>-</code> to remove.</small></label>
 <small>An amber ring counts down the last 10 minutes before a meeting; he rings when it starts.</small></div>
 <div class="card"><h2>Weather</h2>
 <div class="row"><label>Latitude<input data-k="lat"></label><label>Longitude<input data-k="lon"></label></div>
@@ -119,6 +120,10 @@ code{background:var(--bg);padding:1px 5px;border-radius:5px;word-break:break-all
 <div class="card"><h2>Wi-Fi</h2>
 <label>Network<input data-k="ssid" autocapitalize="none"></label>
 <label>Password<input data-k="pass" type="password" placeholder="unchanged" autocomplete="off"></label><small>Changing Wi-Fi takes a restart.</small></div>
+<div class="card"><h2>Home Assistant</h2><p class="sub">Over MQTT: Goli shows up as a device with sensors, buttons and a notify entity.</p>
+<div class="row"><label>Broker<input data-k="mqtt_host" placeholder="homeassistant.local" autocapitalize="none"></label><label style="flex:.4">Port<input type="number" data-k="mqtt_port"></label></div>
+<div class="row"><label>User<input data-k="mqtt_user" autocapitalize="none"></label><label>Password<input type="password" data-k="mqtt_pass" placeholder="unchanged" autocomplete="off"></label></div></div>
+<div class="card"><h2>Night</h2><label class="check"><input type="checkbox" data-k="night">Screen off while he sleeps in quiet hours (a touch wakes him)</label></div>
 <div class="card"><h2>Updates</h2><label class="check"><input type="checkbox" data-k="ota">Install new versions by himself (once a day)</label><p class="sub" id="ver"></p></div>
 <div class="card"><h2>More</h2><div class="bar"><button class="b ghost" onclick="act('restart')">Restart</button>
 <button class="b ghost" onclick="act('setup')">Setup mode (hotspot)</button><button class="b ghost" onclick="unpair()">Forget this browser</button></div></div>
@@ -140,21 +145,21 @@ async function pairStart(){try{await fetch('/api/pair/start',{method:'POST'});to
 async function pair(){const r=await fetch('/api/pair',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:+$('#code').value})});
  const d=await r.json().catch(()=>({}));if(!r.ok)return toast(d.error||'wrong code');token=d.token;localStorage.setItem('goli',token);start()}
 function unpair(){localStorage.removeItem('goli');token='';showPair()}
-const secrets=['token','gh','ics','pass'];
+const secrets=['token','gh','ics','pass','mqtt_pass'];
 function fill(){for(const el of $$('[data-k]')){const k=el.dataset.k,v=cfg[k];
  if(el.tagName=='SELECT'&&k.startsWith('snd_')){el.innerHTML=cfg.sounds.map(s=>`<option value="${s.name}">${s.label}</option>`).join('')}
  if(el.tagName=='SELECT'&&k.startsWith('team_')){const peers=[...new Set([...(state.peers||[]),cfg.team_left,cfg.team_right].filter(Boolean))];
   el.innerHTML='<option value="">nobody</option>'+peers.map(p=>`<option>${esc(p)}</option>`).join('')}
- if(secrets.includes(k)){el.value='';el.placeholder=cfg['has_'+(k=='gh'?'gh':k=='ics'?'ics':k)]?'unchanged':(k=='ics'?'https://calendar.google.com/...basic.ics':'');continue}
+ if(secrets.includes(k)){el.value='';el.placeholder=cfg['has_'+k]?'unchanged':(k=='ics'?'https://calendar.google.com/...basic.ics':'');continue}
  if(el.type=='checkbox')el.checked=!!v;else el.value=v??''}
  volv.value=cfg.vol;$('#focusBtn').textContent='Focus '+cfg.focus+' min';$('#who').textContent=cfg.host+'.local';$('#ver').textContent='Version '+cfg.version;
  $('#customState').textContent=cfg.custom?'Uploaded: pick "Your own sound" above to use it.':'None yet.';
  $('#curl').textContent=`curl -H "Authorization: Bearer ${cfg.key}" -H "Content-Type: application/json" -d '{"title":"Build failed","level":"critical"}' http://${cfg.host}.local/notify`;
- $('#hookHelp').textContent=`In Goliash add a Webhook channel: URL http://${cfg.host}.local/notify (or my IP), secret ${cfg.key}.`}
+ $('#hookUrl').textContent=`http://${cfg.host}.local/notify?key=${cfg.key}`;$('#hookHelp').textContent=`In Goliash add a Webhook channel: URL http://${cfg.host}.local/notify (or my IP), secret ${cfg.key}.`}
 let state={};
 function ago(t){if(!t)return'';const d=new Date(t*1000);return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}
 async function refresh(){try{state=await api('/api/state')}catch(e){return}
- const kv={IP:state.ip,'Wi-Fi':state.rssi+' dBm',Goliash:state.goliash,Calendar:state.calendar,Weather:state.weather||'off',GitHub:state.github,'Sites down':state.down,'Up for':Math.round(state.uptime_s/60)+' min'};
+ const kv={IP:state.ip,'Wi-Fi':state.rssi+' dBm',Goliash:state.goliash,Calendar:state.calendar,Weather:state.weather||'off',GitHub:state.github,'Home Assistant':state.mqtt,'Sites down':state.down,'Up for':Math.round(state.uptime_s/60)+' min'};
  $('#state').innerHTML=Object.entries(kv).map(([k,v])=>`<b>${k}</b><span>${v}</span>`).join('');
  const col={critical:'var(--red)',good:'var(--green)',info:'var(--accent)'};
  $('#log').innerHTML=state.log.length?state.log.map(l=>`<div><span class="dot" style="background:${col[l.level]}"></span><span>${ago(l.at)} ${esc(l.title)}</span></div>`).join(''):'<div>Nothing yet.</div>';

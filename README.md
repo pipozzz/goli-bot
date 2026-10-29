@@ -88,7 +88,7 @@ GFX Library for Arduino, SensorLib for touch and IMU, Espressif's ES8311 codec d
 | 3 quick taps | focus mode (a pomodoro) on / off: 25 minutes by default (set it on the web page), a ring counts down, only critical alerts ring; happy when it's over |
 | 5 quick taps | setup mode (QR code on the screen) |
 | 10 quick taps | demo mode for a booth (any tap stops it) |
-| swipe across the face | Goliash overview → today's meetings → big clock → Goli's day → status |
+| swipe across the face | latest alerts → Goliash overview → today's meetings → big clock → Goli's day → status |
 | knock twice on the desk | snooze: alerts stay silent for 10 minutes |
 | a meeting in 10 minutes | an amber ring counts down, its name under his mouth; a ding when it starts |
 | rain / sun / frost coming | umbrella / sunglasses / scarf |
@@ -112,10 +112,10 @@ The whole face drifts by a few pixels over minutes so the AMOLED does not burn i
 
 ![Swipe pages](docs/pages.png)
 
-Swipe across his face for **Goliash at a glance** (drifting services, updates waiting, updates that fix
+Swipe across his face for the **latest alerts** (time coloured by level), **Goliash at a glance** (drifting services, updates waiting, updates that fix
 exploited vulnerabilities, stale targets; from `GET /api/v1/summary` every 5 minutes; only when Goliash is
 set up), **today's meetings**, a **big clock**, **Goli's day** (alerts, good news, how often you petted
-him, and whether yesterday was rough) and **Goli's status** (version, IP, Wi-Fi, connections, battery,
+him, focus sessions done, and whether yesterday was rough) and **Goli's status** (version, IP, Wi-Fi, connections, battery,
 weather). A tap or 30 s goes back to the face.
 
 The time comes from NTP and is kept by the board's RTC, so the clock is right after a restart even
@@ -132,11 +132,13 @@ Turn it off on the web page.
 - **Mood follows yesterday:** after a day with many alerts (critical ones count three times) his resting
   lids are heavier the next morning. At midnight today becomes yesterday, and it survives a restart.
 - **Desk buddy** (on by default): the first time someone is at the desk in the morning he says good
-  morning (happy birthday on your birthday); after 50 minutes at the desk he suggests a stretch and some
+  morning (happy birthday on your birthday) with the day in one line, like "3 meetings, rain later"; after 50 minutes at the desk he suggests a stretch and some
   water; on Friday after 17:00 he tells you to go home. "At the desk" means a touch, or voices and typing
   heard by the microphones in the last few minutes.
 - **Knock knock:** two quick knocks on the desk (felt by the IMU) snooze alerts for 10 minutes. The
   threshold is a guess until it meets a real desk.
+- **Night:** with *Screen off at night* on, his screen goes dark while he sleeps in quiet hours; a touch
+  wakes him.
 - **A team of Golis:** Golis on the same network find each other. On each one's web page, pick who sits
   on its left and right; when one rings, its neighbours look its way.
 
@@ -281,7 +283,7 @@ Everything is optional; Goli is happy with none of them, and Goliash is just one
 | Source | What Goli does |
 |---|---|
 | **Goliash** | notifications by severity, the overview page (see below) |
-| **Calendar**: any secret iCal address (Google, Outlook, iCloud, Nextcloud) | today's meetings on a page, an amber countdown ring 10 minutes before each, a ding when it starts. Daily and weekly repeats (with skipped dates) are expanded; monthly ones and moved single instances are not. Times are taken in Goli's time zone. Checked every 10 minutes. |
+| **Calendar**: secret iCal addresses (Google, Outlook, iCloud, Nextcloud), up to 4, separated by spaces | today's meetings on a page, an amber countdown ring 10 minutes before each, a ding when it starts. Daily and weekly repeats (with skipped dates) are expanded; monthly ones and moved single instances are not. Times are taken in Goli's time zone. Checked every 10 minutes. |
 | **Weather**: a location (*Use my location* on the web page) | from [Open-Meteo](https://open-meteo.com/) every 30 minutes: an umbrella with rain falling when rain is likely in the next 8 hours, sunglasses on a sunny 20 °C+ day, a scarf at 2 °C or snow |
 | **GitHub**: a classic token with the `notifications` scope | review requests and mentions ring; failed CI on your pull requests and security alerts ring as critical. Checked every minute. |
 | **Keep an eye on**: up to 6 URLs | fetched every minute; two failures in a row is critical ("shop.example.com is down"), and he's happy when it's back |
@@ -311,6 +313,21 @@ and Goli's key as the secret, point a notify rule at it, and tick *Goliash sends
 `X-Goliash-Signature` on every request and stops polling for notifications. He still asks for the summary
 every 5 minutes, which also tells him the token works. (Goliash in Docker may not resolve `.local`
 names: use the IP then, and give Goli a fixed address in your router.)
+
+### Home Assistant
+
+Fill in your MQTT broker on the web page (*Goli* tab; the Mosquitto add-on works). Goli announces
+himself with MQTT discovery and shows up as a device:
+
+| Entity | What it is |
+|---|---|
+| Unseen alerts, Mood, Alerts today | sensors |
+| Focus, Someone at the desk | binary sensors (an occupancy sensor for automations) |
+| Boop, Focus on/off, Demo on/off | buttons |
+| Ring Goli | a notify entity: `notify.send_message` with a message rings him |
+
+For a level, publish `{"title": "Washing machine done", "level": "good"}` to `goli/goli-xxxx/notify`.
+Goli marks himself offline in Home Assistant when he loses the broker.
 
 ### Ring Goli from anything
 
@@ -348,6 +365,13 @@ rest_command:
     content_type: application/json
     payload: '{"title": "{{ title }}", "level": "{{ level | default(''info'') }}"}'
 ```
+
+**Monitoring tools, as they are:** Alertmanager (Prometheus), Grafana alerting and Uptime Kuma can post
+straight to `http://goli-xxxx.local/notify`. Goli understands their webhook formats: firing alerts ring
+(critical when the `severity` label is critical), resolved ones and monitors coming back up are good
+news, a monitor going down is critical. Give the key as a Bearer header, or in the address
+(`/notify?key=...`) for tools that can't set headers; the address then contains the key, so keep it
+inside your network.
 
 Titles show in ASCII; common accented letters are folded (č → c).
 

@@ -63,6 +63,11 @@ void Screens::begin(lv_obj_t *screen) {
   date_ = label(c, &lv_font_montserrat_28, kLight, 300);
   lv_obj_set_pos(date_, kC - 150, 290);
 
+  alerts_ = textPage(screen, ALERTS, "Alerts");
+  lv_label_set_recolor(alerts_, true);
+  lv_obj_set_style_text_font(alerts_, &lv_font_montserrat_28, 0);
+  lv_label_set_long_mode(alerts_, LV_LABEL_LONG_DOT);
+  lv_obj_set_height(alerts_, 230);
   agenda_ = textPage(screen, AGENDA, "Today");
   today_ = textPage(screen, TODAY, "Goli's day");
   status_ = textPage(screen, STATUS, "Goli");
@@ -153,3 +158,5 @@ void Screens::setStatus(const char *text) { lv_label_set_text(status_, text); }
 void Screens::setAgenda(const char *text) { lv_label_set_text(agenda_, text); }
 
 void Screens::setToday(const char *text) { lv_label_set_text(today_, text); }
+
+void Screens::setAlerts(const char *text) { lv_label_set_text(alerts_, text); }

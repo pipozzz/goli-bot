@@ -51,7 +51,16 @@ char said[64] = "";             // a message under his mouth, until said_until
 uint32_t said_until = 0;
 
 // ---- his day
-int today_alerts = 0, today_critical = 0, today_good = 0, today_pets = 0, today_boops = 0;
+int today_alerts = 0, today_critical = 0, today_good = 0, today_pets = 0, today_boops = 0, today_focus = 0;
+
+// The latest alerts, for the Alerts page (newest first)
+struct Recent {
+  char title[40];
+  AlertLevel level;
+  time_t at;
+};
+Recent recent[5];
+int recent_n = 0;
 int yday_alerts = -1, yday_critical = 0;
 int day_of_year = -1;
 
@@ -212,6 +221,7 @@ void tickSecond(uint32_t now) {
   if (focus_until) {
     const int32_t left = int32_t(focus_until - now) / 1000;
     if (left <= 0) {  // done!
+      today_focus++;
       focus_until = 0;
       face.setFocus(-1, 0);
       face.setBaseMood(Mood::TIRED);
@@ -247,6 +257,26 @@ void tickSecond(uint32_t now) {
     case Screens::CLOCK:
       screens.setClock(clock_ok ? hhmm : "--:--", clock_ok ? date : "no time yet");
       break;
+    case Screens::ALERTS: {
+      static const char *colors[] = {"3fb27f", "8e99f0", "e5484d"};
+      char text[320] = "";
+      size_t used = 0;
+      for (int i = 0; i < recent_n && used < sizeof text; i++) {
+        struct tm m;
+        localtime_r(&recent[i].at, &m);
+        char title[34];  // 16 characters, '#' doubled: a lone '#' starts a colour in LVGL's recolor
+        size_t o = 0;
+        for (const char *c = recent[i].title; *c && o < 16 + 16 && (c - recent[i].title) < 16; c++) {
+          if (*c == '#') title[o++] = '#';
+          title[o++] = *c;
+        }
+        title[o] = 0;
+        used += snprintf(text + used, sizeof text - used, "#%s %02d:%02d# %s\n", colors[int(recent[i].level)],
+                         m.tm_hour, m.tm_min, title);
+      }
+      screens.setAlerts(recent_n ? text : "nothing yet\ntoday");
+      break;
+    }
     case Screens::AGENDA: {
       char text[256] = "";
       size_t used = 0;
@@ -262,8 +292,8 @@ void tickSecond(uint32_t now) {
     }
     case Screens::TODAY: {
       char text[256];
-      snprintf(text, sizeof text, "%d alerts, %d critical\n%d good news\npetted %dx, booped %dx\n%s",
-               today_alerts, today_critical, today_good, today_pets, today_boops,
+      snprintf(text, sizeof text, "%d alerts, %d critical\n%d good news\n%d focus sessions\npetted %dx, booped %dx\n%s",
+               today_alerts, today_critical, today_good, today_focus, today_pets, today_boops,
                yday_alerts < 0 ? "" : (yday_alerts > 15 ? "rough yesterday" : "calm yesterday"));
       screens.setToday(text);
       break;
@@ -299,7 +329,7 @@ void daily(const struct tm &lt, uint32_t now) {
     if (day_of_year >= 0) {  // midnight: today becomes yesterday
       if (hk.dayOver) hk.dayOver(today_alerts, today_critical);
       yesterday(today_alerts, today_critical);
-      today_alerts = today_critical = today_good = today_pets = today_boops = 0;
+      today_alerts = today_critical = today_good = today_pets = today_boops = today_focus = 0;
     }
     day_of_year = lt.tm_yday;
     wear();
@@ -315,7 +345,14 @@ void daily(const struct tm &lt, uint32_t now) {
     snprintf(today, sizeof today, "%02d-%02d", lt.tm_mon + 1, lt.tm_mday);
     face.setMood(Mood::HAPPY, 2500);
     chime(talks() ? Sound::YAY : Sound::CHIRP, now);
-    say(bday && !strcmp(bday, today) ? "happy birthday!" : "good morning!", 6000, now);
+    say(bday && !strcmp(bday, today) ? "happy birthday!" : "good morning!", 8000, now);
+    // The day ahead, in one line: meetings and what to wear
+    char brief[64];
+    const char *sky = weather_mask & UMBRELLA ? "rain later" : weather_mask & SUNGLASSES ? "sunny" :
+                      weather_mask & SCARF ? "freezing" : nullptr;
+    if (meet_n) snprintf(brief, sizeof brief, "%d meeting%s%s%s", meet_n, meet_n > 1 ? "s" : "", sky ? ", " : "", sky ? sky : "");
+    else snprintf(brief, sizeof brief, "%s", sky ? sky : "");
+    if (*brief && !(pairing_until && int32_t(pairing_until - now) > 0)) face.showTitle(brief, 8000);
   }
   if (friday_day != lt.tm_yday && lt.tm_wday == 5 && lt.tm_hour >= 17) {  // weekend!
     friday_day = lt.tm_yday;
@@ -376,6 +413,14 @@ void updateIdle(uint32_t now) {
 
   if (asleep && on_battery && now - asleep_since > SCREEN_OFF_AFTER_MS) {
     setBrightness(0);  // on battery and nobody around: screen off until touched or moved
+  }
+  static bool night_dark = false;
+  if (asleep && hk.nightOff && hk.nightOff() && hk.quietHours && hk.quietHours()) {
+    setBrightness(0);  // a dark bedroom: off until quiet hours end, or a touch
+    night_dark = true;
+  } else if (night_dark) {
+    night_dark = false;
+    if (asleep && !(on_battery && now - asleep_since > SCREEN_OFF_AFTER_MS)) setBrightness(false);  // morning: dim, not dark
   }
   if (!asleep && (idle > ASLEEP_AFTER_MS || (flat_since && now - flat_since > 3000))) {
     asleep = true;
@@ -450,6 +495,11 @@ void alert(const char *title, int count, AlertLevel level, bool quiet_hours, uin
   if (level == AlertLevel::CRITICAL) today_critical += count;
   if (level == AlertLevel::GOOD) today_good += count;
   face.showAlert(title, face.unseen() + count, level);
+  for (int i = std::min(recent_n, 4); i > 0; i--) recent[i] = recent[i - 1];
+  snprintf(recent[0].title, sizeof recent[0].title, "%s", title);
+  recent[0].level = level;
+  recent[0].at = time(nullptr);
+  if (recent_n < 5) recent_n++;
   if (hk.alerted) hk.alerted(level);
   if (quiet_hours || snoozed(now)) return;  // at night or snoozed: badge only
   if (focus_until && level != AlertLevel::CRITICAL) return;  // focusing: only what's on fire
@@ -564,6 +614,18 @@ void pairCode(int code, uint32_t now) {
   face.showTitle(text, 120000);
   face.setMood(Mood::SURPRISED, 1500);
   sound::play(talks() ? Sound::HM : Sound::CHIRP);
+}
+
+State state(uint32_t now) {
+  static const char *moods[] = {"tired", "happy", "surprised", "dizzy", "drowsy", "asleep", "wink", "alarmed", "focused", "wince"};
+  State st;
+  st.mood = moods[int(face.mood())];
+  st.unseen = face.unseen();
+  st.today_alerts = today_alerts;
+  st.focus = focus_until != 0;
+  st.present = present_last && now - present_last < 3 * 60000UL;
+  st.asleep = asleep;
+  return st;
 }
 
 void loud(bool on) {

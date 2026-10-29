@@ -7,7 +7,7 @@
 // They lie on top of the face; page FACE hides them all.
 class Screens {
  public:
-  enum Page { FACE = 0, OVERVIEW, AGENDA, CLOCK, TODAY, STATUS, COUNT };
+  enum Page { FACE = 0, ALERTS, OVERVIEW, AGENDA, CLOCK, TODAY, STATUS, COUNT };
 
   void begin(lv_obj_t *screen);
   void show(int page);
@@ -23,6 +23,7 @@ class Screens {
   void setStatus(const char *text);  // a few lines
   void setAgenda(const char *text);  // today's meetings, a line each
   void setToday(const char *text);   // Goli's day in a few lines
+  void setAlerts(const char *text);  // the latest alerts; #rrggbb ...# colours the times
 
  private:
   struct Stat {
@@ -30,8 +31,8 @@ class Screens {
   };
   lv_obj_t *pages_[COUNT] = {}, *dots_[COUNT] = {}, *dot_row_ = nullptr;
   lv_obj_t *ws_ = nullptr, *ws_note_ = nullptr, *time_ = nullptr, *date_ = nullptr, *status_ = nullptr;
-  lv_obj_t *agenda_ = nullptr, *today_ = nullptr;
-  bool enabled_[COUNT] = {true, true, true, true, true, true};
+  lv_obj_t *agenda_ = nullptr, *today_ = nullptr, *alerts_ = nullptr;
+  bool enabled_[COUNT] = {true, true, true, true, true, true, true};
   lv_obj_t *textPage(lv_obj_t *screen, Page p, const char *title);
   Stat stats_[4] = {};
   int page_ = FACE;

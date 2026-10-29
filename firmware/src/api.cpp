@@ -17,6 +17,7 @@
 #include "config.h"
 #include "github.h"
 #include "goliash.h"
+#include "mqtt.h"
 #include "settings.h"
 #include "sound.h"
 #include "team.h"
@@ -79,9 +80,46 @@ bool signedByGoliash(const String &body) {
   return same(sig.substring(7), String(hex));
 }
 
+// The key as "Authorization: Bearer <key>", or ?key=<key> for tools that can't set headers
 bool bearer() {
   const String auth = server.header("Authorization");
-  return auth.startsWith("Bearer ") && same(auth.substring(7), settings::get().api_key);
+  if (auth.startsWith("Bearer ")) return same(auth.substring(7), settings::get().api_key);
+  return server.hasArg("key") && same(server.arg("key"), settings::get().api_key);
+}
+
+AlertLevel parseLevel(const char *s);
+
+// Alertmanager (Prometheus) and Grafana's alerting both post {"status", "alerts": [{labels, annotations}]}
+bool fromAlertmanager(JsonObjectConst msg) {
+  JsonArrayConst list = msg["alerts"];
+  if (!list.size()) return false;
+  JsonObjectConst first = list[0];
+  const bool resolved = !strcmp(msg["status"] | (first["status"] | "firing"), "resolved");
+  AlertLevel level = AlertLevel::INFO;
+  int firing = 0;
+  for (JsonObjectConst a : list) {
+    if (!resolved && !strcmp(a["status"] | "firing", "resolved")) continue;  // already over, sent along with the group
+    firing++;
+    const char *sev = a["labels"]["severity"] | "";
+    if (!strcmp(sev, "critical") || !strcmp(sev, "page") || !strcmp(sev, "error")) level = AlertLevel::CRITICAL;
+  }
+  if (resolved) level = AlertLevel::GOOD;
+  const char *what = msg["title"] | (first["annotations"]["summary"] | (first["labels"]["alertname"] | "alert"));
+  char title[96];
+  snprintf(title, sizeof title, "%s%s", what, resolved && !msg["title"].is<const char *>() ? " - resolved" : "");
+  return goliash::pushAlert(title, level, std::max(1, resolved ? int(list.size()) : firing));
+}
+
+// Uptime Kuma: {"heartbeat": {"status": 0 down | 1 up | 2 pending | 3 maintenance}, "monitor": {"name"}, "msg"};
+// its test button and certificate notices send heartbeat: null and only a message
+bool fromUptimeKuma(JsonObjectConst msg) {
+  if (!msg["heartbeat"].is<JsonObjectConst>()) return goliash::pushAlert(msg["msg"] | "Uptime Kuma", AlertLevel::INFO);
+  const char *name = msg["monitor"]["name"] | "a monitor";
+  const int status = msg["heartbeat"]["status"] | -1;
+  char title[96];
+  if (status == 0 || status == 1) snprintf(title, sizeof title, "%s is %s", name, status == 1 ? "up" : "down");
+  else snprintf(title, sizeof title, "%s: %s", name, status == 3 ? "maintenance" : "pending");
+  return goliash::pushAlert(title, status == 1 ? AlertLevel::GOOD : status == 0 ? AlertLevel::CRITICAL : AlertLevel::INFO);
 }
 
 // Only answer requests made to Goli by his name or address: a page elsewhere can't reach him
@@ -165,10 +203,19 @@ void notify() {
   bool rang;
   if (msg["items"].is<JsonArrayConst>()) {  // a Goliash notifier message
     rang = goliash::pushMessage(msg);
+  } else if (msg["alerts"].is<JsonArrayConst>()) {  // Alertmanager, Grafana
+    rang = fromAlertmanager(msg);
+  } else if (msg["heartbeat"].is<JsonObjectConst>() ||
+             (msg["msg"].is<const char *>() && !msg["title"].is<const char *>())) {  // Uptime Kuma (also its test)
+    rang = fromUptimeKuma(msg);
   } else {
     const char *title = msg["title"] | "";
     if (!*title) return reply(400, "title is required");
-    rang = goliash::pushAlert(title, parseLevel(msg["level"] | "info"));
+    AlertLevel level = parseLevel(msg["level"] | "info");
+    const char *state = msg["state"] | "";  // Grafana's legacy alerts: "alerting" / "ok"
+    if (!strcmp(state, "alerting")) level = AlertLevel::CRITICAL;
+    else if (!strcmp(state, "ok")) level = AlertLevel::GOOD;
+    rang = goliash::pushAlert(title, level);
   }
   reply(202, rang ? "ringing" : "filtered out");
 }
@@ -266,6 +313,11 @@ void getConfig() {
   d["buddy"] = c.buddy;
   d["brk"] = c.break_min;
   d["focus"] = c.focus_min;
+  d["night"] = c.night_off;
+  d["mqtt_host"] = c.mqtt_host;
+  d["mqtt_port"] = c.mqtt_port;
+  d["mqtt_user"] = c.mqtt_user;
+  d["has_mqtt_pass"] = c.mqtt_pass.length() > 0;
   d["bday"] = c.birthday;
   d["key"] = c.api_key;
   d["custom"] = sound::customSamples() > 0;
@@ -328,6 +380,11 @@ void setConfig() {
   flag("buddy", s.buddy);
   num("brk", s.break_min, 0, 240);
   num("focus", s.focus_min, 1, 180);
+  flag("night", s.night_off);
+  str("mqtt_host", s.mqtt_host);
+  num("mqtt_port", s.mqtt_port, 1, 65535);
+  str("mqtt_user", s.mqtt_user);
+  if (in["mqtt_pass"].is<const char *>()) s.mqtt_pass = in["mqtt_pass"].as<const char *>();
   str("bday", s.birthday);
   const bool newkey = in["newkey"] | false;
   if (newkey) settings::newKey();
@@ -357,6 +414,7 @@ void getState() {
   d["weather"] = w;
   d["github"] = github::state();
   d["down"] = watch::down();
+  d["mqtt"] = mqtt::status();
   bot::Meeting m[6];
   const int mn = calendar::upcoming(m, 6);
   JsonArray meetings = d["meetings"].to<JsonArray>();
@@ -482,6 +540,8 @@ void begin() {
   store.begin("goli-web", false);
   xTaskCreatePinnedToCore(task, "goli_api", 8192, nullptr, 1, nullptr, 0);
 }
+
+void request(Command cmd, int arg) { ask(cmd, arg); }
 
 bool take(Request &out) { return requests && xQueueReceive(requests, &out, 0) == pdTRUE; }
 

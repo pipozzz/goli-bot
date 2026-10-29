@@ -45,6 +45,6 @@ int log(LogEntry *out, int max);  // the latest alerts, newest first
 // From the local API (any task that runs the web server): a Goliash webhook body (a notifier
 // message, filtered like polled ones), or a plain alert. False when the filter drops it.
 bool pushMessage(JsonObjectConst msg);
-bool pushAlert(const char *title, AlertLevel level);
+bool pushAlert(const char *title, AlertLevel level, int count = 1);
 
 }  // namespace goliash

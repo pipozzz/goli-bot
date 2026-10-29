@@ -302,10 +302,10 @@ bool pushMessage(JsonObjectConst msg) {
   return true;
 }
 
-bool pushAlert(const char *title, AlertLevel level) {
+bool pushAlert(const char *title, AlertLevel level, int count) {
   if (!alerts) return false;
   if (settings::get().min_level >= int(AlertLevel::CRITICAL) && level != AlertLevel::CRITICAL) return false;
-  queue(title, 1, level);
+  queue(title, count, level);
   return true;
 }
 

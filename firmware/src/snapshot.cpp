@@ -114,8 +114,9 @@ int main() {
   screens.setClock("09:41", "Wed 28 Oct");
   screens.setStatus("v0.2.0\n192.168.1.42\n-58 dBm\nGoliash: ok\nbattery 87%");
   screens.setAgenda("10:00 stand-up\n13:30 design review\n16:00 1:1 with Ana");
-  screens.setToday("12 alerts, 2 critical\n3 good news\npetted 4x, booped 9x\ncalm yesterday");
-  const char *pages[] = {"", "page_1_overview", "page_2_agenda", "page_3_clock", "page_4_today", "page_5_status"};
+  screens.setToday("12 alerts, 2 critical\n3 good news\n2 focus sessions\npetted 4x, booped 9x\ncalm yesterday");
+  screens.setAlerts("#e5484d 10:41# payments drift\n#3fb27f 10:58# eu-west is back\n#8e99f0 11:20# checkout 2.4.1\n#e5484d 12:05# CI failed: api");
+  const char *pages[] = {"", "page_0_alerts", "page_1_overview", "page_2_agenda", "page_3_clock", "page_4_today", "page_5_status"};
   for (int p = 1; p < Screens::COUNT; p++) {
     screens.show(p);
     lv_obj_invalidate(lv_scr_act());

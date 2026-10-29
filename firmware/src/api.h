@@ -18,6 +18,7 @@ struct Request {
   int arg;
 };
 bool take(Request &out);  // from the main loop
+void request(Command cmd, int arg = 0);  // from any task (MQTT commands too)
 
 void begin();  // once, before Wi-Fi starts; serves from its own task when Wi-Fi is up
 const char *hostname();  // goli-xxxx

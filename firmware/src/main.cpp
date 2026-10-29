@@ -29,6 +29,7 @@
 #include "improv.h"
 #include "mic.h"
 #include "motion.h"
+#include "mqtt.h"
 #include "ota.h"
 #include "power.h"
 #include "rtc.h"
@@ -145,6 +146,7 @@ bool talks() { return cfg.talk; }
 bool buddy() { return cfg.buddy; }
 int breakMin() { return cfg.break_min; }
 int focusMin() { return cfg.focus_min; }
+bool nightOff() { return cfg.night_off; }
 const char *birthday() { return cfg.birthday.length() == 5 ? cfg.birthday.c_str() : nullptr; }
 void alerted(AlertLevel level) { team::rang(int(level)); }
 
@@ -210,6 +212,7 @@ void pollSources(uint32_t now) {
   if (team::takeGlance(dir)) bot::teamAlert(dir, now);
   if (mic_ok && mic::lastSoundMs() && now - mic::lastSoundMs() < 5000) bot::presence(now);
   bot::pages(settings::hasGoliash());
+  mqtt::setState(bot::state(now));
 }
 
 void pollMic(uint32_t now) {
@@ -400,11 +403,13 @@ void setup() {
   hooks.dayOver = dayOver;
   hooks.quietHours = goliash::quietHours;
   hooks.focusMin = focusMin;
+  hooks.nightOff = nightOff;
   bot::begin(lv_scr_act(), hooks, millis());
   const time_t t = time(nullptr);  // from the RTC already
   if (t > 1700000000 && prefs.getInt("yfor", 0) == dateOf(t)) bot::yesterday(prefs.getInt("ya"), prefs.getInt("yc"));
   api::begin();                     // before Wi-Fi starts: sets the hostname
   goliash::begin();
+  mqtt::begin();
   improv::begin(nullptr, nullptr);  // the web installer can change the Wi-Fi
   Serial.printf("Goli %s is up. Furt dačo!\n", GOLI_VERSION);
 }

@@ -30,6 +30,7 @@ struct Hooks {
   void (*dayOver)(int alerts, int critical) = nullptr;  // at midnight: remember today for tomorrow's mood
   bool (*quietHours)() = nullptr;                    // night: no sounds from the desk buddy either
   int (*focusMin)() = nullptr;                       // how long focus mode lasts (nullptr: FOCUS_MIN)
+  bool (*nightOff)() = nullptr;                      // screen fully off while he sleeps in quiet hours
 };
 
 struct Meeting {
@@ -63,5 +64,13 @@ void poke(uint32_t now);            // like a tap
 void focus(uint32_t now);           // focus mode on / off
 void demo(uint32_t now);            // demo loop on / off
 void pairCode(int code, uint32_t now);  // show a pairing code (0 hides it)
+
+// What he's up to, for Home Assistant
+struct State {
+  const char *mood;
+  int unseen, today_alerts;
+  bool focus, present, asleep;
+};
+State state(uint32_t now);
 
 }  // namespace bot

@@ -43,6 +43,11 @@ void ensureKey() {
   prefs.putBool("buddy", s.buddy);
   prefs.putInt("brk", s.break_min);
   prefs.putInt("focus", s.focus_min);
+  prefs.putBool("night", s.night_off);
+  prefs.putString("mqh", s.mqtt_host);
+  prefs.putString("mqu", s.mqtt_user);
+  prefs.putString("mqp", s.mqtt_pass);
+  prefs.putInt("mqport", s.mqtt_port);
   prefs.putString("bday", s.birthday);
 }
 
@@ -89,13 +94,18 @@ void load() {
   s.buddy = prefs.getBool("buddy", true);
   s.break_min = prefs.getInt("brk", 50);
   s.focus_min = prefs.getInt("focus", FOCUS_MIN);
+  s.night_off = prefs.getBool("night", false);
+  s.mqtt_host = prefs.getString("mqh");
+  s.mqtt_user = prefs.getString("mqu");
+  s.mqtt_pass = prefs.getString("mqp");
+  s.mqtt_port = prefs.getInt("mqport", 1883);
   s.birthday = prefs.getString("bday");
 }
 
 void save() {
   xSemaphoreTakeRecursive(mutex, portMAX_DELAY);
   const Settings s = settings::s;  // write a snapshot: NVS commits are slow, don't hold the lock for them
-  version++;
+  version = version + 1;
   xSemaphoreGiveRecursive(mutex);
   prefs.putString("ssid", s.ssid);
   prefs.putString("pass", s.pass);
