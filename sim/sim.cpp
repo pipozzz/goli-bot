@@ -31,6 +31,7 @@ char hint_buf[64];
 Sound sounds[3] = {Sound::CHIRP, Sound::DING, Sound::ALARM};  // by AlertLevel: good, info, critical
 bool talk = false, buddy_on = true, at_desk = false, bday = false;
 int break_min = 50, focus_min = FOCUS_MIN;
+int face_clock = 1, face_clock_min = 1;  // now and then: every minute here, to see it soon
 uint8_t weather_mask = 0;
 char today[6] = "";
 
@@ -62,8 +63,13 @@ bool talks() { return talk; }
 bool buddy() { return buddy_on; }
 int breakMin() { return break_min; }
 int focusMin() { return focus_min; }
+int faceClock() { return face_clock; }
+int faceClockMin() { return face_clock_min; }
+int temperature() {
+  return weather_mask & HOT ? 31 : weather_mask & COLD ? -3 : weather_mask & UMBRELLA ? 9 : weather_mask & SUNGLASSES ? 24 : 14;
+}
 void weatherText(char *out, size_t cap) {
-  snprintf(out, cap, "%s", weather_mask & 2 ? "9 C, rain later" : weather_mask & 1 ? "24 C" : weather_mask & 4 ? "-3 C" : "14 C");
+  snprintf(out, cap, "%d C%s", temperature(), weather_mask & UMBRELLA ? ", rain later" : "");
 }
 const char *birthday() {
   if (!bday) return nullptr;
@@ -179,12 +185,13 @@ EMSCRIPTEN_KEEPALIVE void sim_meeting(const char *title, int in_s) {  // 30 minu
 }
 EMSCRIPTEN_KEEPALIVE void sim_weather(int mask) {
   weather_mask = uint8_t(mask);
-  bot::weather(weather_mask);
+  bot::weather(weather_mask, temperature());
 }
 EMSCRIPTEN_KEEPALIVE void sim_birthday(int on) {
   bday = on;
-  bot::weather(weather_mask);  // dresses him again, party hat included
+  bot::weather(weather_mask, temperature());  // dresses him again, party hat included
 }
+EMSCRIPTEN_KEEPALIVE void sim_face_clock(int mode) { face_clock = mode; }
 EMSCRIPTEN_KEEPALIVE void sim_desk(int on, int minutes) {
   at_desk = on;
   break_min = minutes;
@@ -239,7 +246,10 @@ int main() {
   hooks.birthday = birthday;
   hooks.focusMin = focusMin;
   hooks.weather = weatherText;
+  hooks.faceClock = faceClock;
+  hooks.faceClockMin = faceClockMin;
   bot::begin(lv_scr_act(), hooks, uint32_t(emscripten_get_now()));
+  bot::weather(weather_mask, temperature());  // a mild 14 C to start with
   bot::meetings(nullptr, 0);
   emscripten_set_main_loop(frame, 0, false);
   return 0;

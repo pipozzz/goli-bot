@@ -76,6 +76,8 @@ void load() {
   s.focus_min = prefs.getInt("focus", FOCUS_MIN);
   s.focus_break = prefs.getInt("fbrk", 5);
   s.night_off = prefs.getBool("night", false);
+  s.face_clock = prefs.getInt("fclk", 1);
+  s.face_clock_min = prefs.getInt("fclkm", 15);
   s.lang = prefs.getString("lang", "en");
   s.mqtt_host = prefs.getString("mqh");
   s.mqtt_user = prefs.getString("mqu");
@@ -124,6 +126,8 @@ void save() {
   prefs.putInt("focus", s.focus_min);
   prefs.putInt("fbrk", s.focus_break);
   prefs.putBool("night", s.night_off);
+  prefs.putInt("fclk", s.face_clock);
+  prefs.putInt("fclkm", s.face_clock_min);
   prefs.putString("lang", s.lang);
   prefs.putString("mqh", s.mqtt_host);
   prefs.putString("mqu", s.mqtt_user);

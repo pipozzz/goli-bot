@@ -125,6 +125,9 @@ GFX Library for Arduino, SensorLib for touch and IMU, Espressif's ES8311 codec d
 | an alert arrives | he hops, and the badge breathes until you've seen it (faster when critical) |
 | nothing happens for a while | every few minutes a glance around, a look at the clock, a silent yawn |
 | rain / sun / frost coming | umbrella / sunglasses / scarf |
+| below 0 °C / above 28 °C outside | a shiver now and then / a drop of sweat |
+| every 15 minutes (web page: never, now and then, always) | the time and the temperature under his mouth for a few seconds |
+| you pick him up | the time and the temperature, like a glance at a watch |
 | your birthday, December | party hat, Santa hat |
 | a Goli next to him rings | he looks that way |
 | finger resting on / stroking the face | petting: blissful closed eyes |
@@ -196,7 +199,7 @@ ArduinoJson from one firmware build.
 `pio run -e behaviour && .pio/build/behaviour/program` (in `firmware/`) runs Goli's behaviour (`bot.cpp`)
 through a day with fake time and records what he plays: taps and the wink, alerts and the badge, quiet
 hours, focus with its break, the kitchen timer through quiet, meetings, the knock-knock snooze, setup and
-demo taps, falling asleep, and the morning greeting once a day.
+demo taps, the time and temperature on his face, falling asleep, and the morning greeting once a day.
 
 ### Simulator
 
@@ -344,7 +347,7 @@ Everything is optional; Goli is happy with none of them, and Goliash is just one
 |---|---|
 | **Goliash** | notifications by severity, the overview page (see below) |
 | **Calendar**: secret iCal addresses (Google, Outlook, iCloud, Nextcloud), up to 4, separated by spaces | today's meetings on a page, an amber countdown ring 10 minutes before each, a ding when it starts. Daily and weekly repeats (with skipped dates) are expanded; monthly ones and moved single instances are not. Times are taken in Goli's time zone. Checked every 10 minutes. |
-| **Weather**: a location (*Use my location* on the web page) | from [Open-Meteo](https://open-meteo.com/) every 30 minutes: an umbrella with rain falling when rain is likely in the next 8 hours, sunglasses on a sunny 20 °C+ day, a scarf at 2 °C or snow |
+| **Weather**: a location (*Use my location* on the web page) | from [Open-Meteo](https://open-meteo.com/) every 30 minutes: an umbrella with rain falling when rain is likely in the next 8 hours, sunglasses on a sunny 20 °C+ day, a scarf at 2 °C or snow; the temperature with the time on his face and in the morning greeting |
 | **GitHub**: a classic token with the `notifications` scope | review requests and mentions ring; failed CI on your pull requests and security alerts ring as critical. Checked every minute. |
 | **Keep an eye on**: up to 6 URLs | fetched every minute; two failures in a row is critical ("shop.example.com is down"), and he's happy when it's back |
 | **ntfy**: a topic on ntfy.sh or your own server | every message posted to it rings; JSON in a webhook format he knows is read like `POST /notify` |

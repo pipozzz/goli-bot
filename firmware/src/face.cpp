@@ -124,6 +124,11 @@ void Face::begin(lv_obj_t *screen) {
   }
   lv_obj_add_flag(scarf_, LV_OBJ_FLAG_HIDDEN);
 
+  // A drop of sweat by his right temple (HOT)
+  sweat_ = box(root_, 12, 18, 0x9fd3ff, 6);
+  lv_obj_set_style_bg_opa(sweat_, LV_OPA_80, 0);
+  lv_obj_add_flag(sweat_, LV_OBJ_FLAG_HIDDEN);
+
   mouth_ = line(root_, kLight, 9);
 
   zzz_ = lv_label_create(root_);
@@ -344,7 +349,10 @@ void Face::apply(uint32_t now) {
     const float t = (now - hop_start_) / 260.f;
     hop = -int((t < 1.f ? 12.f : 5.f) * sinf(float(M_PI) * (t < 1.f ? t : t - 1.f)));
   }
-  lv_obj_set_pos(root_, drift_x, int(5.f * sinf(now / 53000.f)) + breath + hop);
+  // Freezing: a quick shiver every few seconds
+  int shiver = 0;
+  if ((accessories_ & COLD) && mood_ != Mood::ASLEEP && now % 6000 < 450) shiver = (now / 45) % 2 ? 3 : -3;
+  lv_obj_set_pos(root_, drift_x + shiver, int(5.f * sinf(now / 53000.f)) + breath + hop);
   lv_obj_set_y(focus_arc_, 6 - hop);  // the ring stays by the glass's edge while he hops
 
   // An unseen alert's badge breathes (faster when it's critical)
@@ -408,6 +416,14 @@ void Face::apply(uint32_t now) {
     lv_obj_set_pos(zzz_, kC + 64, 46 + int(8.f * sinf(now / 700.f)));
   } else {
     lv_obj_add_flag(zzz_, LV_OBJ_FLAG_HIDDEN);
+  }
+  if ((accessories_ & HOT) && mood_ != Mood::ASLEEP) {  // the drop runs down, fades, and comes back
+    const uint32_t t = now % 4000;
+    lv_obj_clear_flag(sweat_, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_pos(sweat_, kC + kEyeDx + kRing - 6, 116 + int(t / 50));
+    lv_obj_set_style_bg_opa(sweat_, lv_opa_t(t < 3000 ? 200 : 200 - (t - 3000) / 5), 0);
+  } else {
+    lv_obj_add_flag(sweat_, LV_OBJ_FLAG_HIDDEN);
   }
   if (accessories_ & UMBRELLA) {  // rain falling past the umbrella
     for (int i = 0; i < 3; i++) {

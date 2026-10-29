@@ -122,12 +122,15 @@
         <div class="row">
           <button class="b" data-wear="2" aria-pressed="false">Rain</button>
           <button class="b" data-wear="1" aria-pressed="false">Sunny</button>
-          <button class="b" data-wear="4" aria-pressed="false">Freezing</button>
+          <button class="b" data-wear="36" aria-pressed="false">Freezing</button>
+          <button class="b" data-wear="64" aria-pressed="false">Heat wave</button>
           <button class="b" id="bday" aria-pressed="false">Birthday</button>
         </div>
         <div class="row"><label style="flex:1">Yesterday's alerts <input type="range" id="yday" min="0" max="40" value="0"></label></div>
         <div class="row"><button class="b" id="desk" aria-pressed="false">Someone at the desk</button>
           <label style="flex:1">break after <input type="range" id="brk" min="1" max="50" value="1"> <output id="brkv">1</output> min</label></div>
+        <div class="row"><label style="flex:1">Time and temperature on his face
+          <select id="fclk"><option value="0">Never</option><option value="1" selected>Now and then (every minute here)</option><option value="2">Always</option></select></label></div>
         <div class="row"><label style="flex:1">Focus (3 taps) lasts <input type="range" id="focusmin" min="1" max="60" value="25"> <output id="focusv">25</output> min</label></div>
         <div class="row"><button class="b" id="timer1">Timer 1 min</button><button class="b" id="quiet" aria-pressed="false">Quiet</button></div>
         <div class="row"><button class="b" id="knock">Knock knock (snooze)</button>
@@ -240,6 +243,7 @@ function wire() {
   document.getElementById('knock').onclick = () => Module._sim_knock();
   document.getElementById('timer1').onclick = () => Module._sim_timer(1);
   document.getElementById('lang').onchange = e => Module.ccall('sim_lang', null, ['string'], [e.target.value]);
+  document.getElementById('fclk').onchange = e => Module._sim_face_clock(+e.target.value);
   document.getElementById('focusmin').oninput = e => { document.getElementById('focusv').value = e.target.value; Module._sim_focus_min(+e.target.value); };
   document.getElementById('tleft').onclick = () => Module._sim_team(-1);
   document.getElementById('tright').onclick = () => Module._sim_team(1);

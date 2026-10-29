@@ -272,6 +272,8 @@ void getConfig() {
   d["focus"] = c.focus_min;
   d["fbrk"] = c.focus_break;
   d["night"] = c.night_off;
+  d["fclk"] = c.face_clock;
+  d["fclkm"] = c.face_clock_min;
   d["lang"] = c.lang;
   d["mqtt_host"] = c.mqtt_host;
   d["mqtt_port"] = c.mqtt_port;
@@ -344,6 +346,8 @@ void setConfig() {
   num("focus", s.focus_min, 1, 180);
   num("fbrk", s.focus_break, 0, 60);
   flag("night", s.night_off);
+  num("fclk", s.face_clock, 0, 2);
+  num("fclkm", s.face_clock_min, 1, 240);
   str("lang", s.lang);
   str("mqtt_host", s.mqtt_host);
   num("mqtt_port", s.mqtt_port, 1, 65535);
@@ -600,6 +604,8 @@ void backup() {
   d["focus"] = c.focus_min;
   d["fbrk"] = c.focus_break;
   d["night"] = c.night_off;
+  d["fclk"] = c.face_clock;
+  d["fclkm"] = c.face_clock_min;
   d["lang"] = c.lang;
   d["mqtt_host"] = c.mqtt_host;
   d["mqtt_port"] = c.mqtt_port;

@@ -1,7 +1,8 @@
 // Goli's behaviour (bot.cpp) with fake time, no board (env:behaviour; CI runs it):
 //   pio run -e behaviour && .pio/build/behaviour/program
 // One timeline through a day: taps, focus and its break, a kitchen timer, quiet, a meeting, a knock
-// on the desk, setup and demo taps, falling asleep, and the next morning's greeting.
+// on the desk, setup and demo taps, the time and temperature on his face, falling asleep, and the next
+// morning's greeting.
 #include <lvgl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,6 +23,7 @@ namespace {
 time_t wall = 0;  // Unix seconds, moves with g_fake_millis
 std::vector<Sound> played;
 bool setup_called = false, quiet_hours = false, buddy_on = false;
+int face_clock = 1, face_clock_min = 15;
 int brightness = -1;
 int failures = 0, checks = 0;
 
@@ -80,6 +82,16 @@ bool heard(Sound s) {
 
 bot::State st() { return bot::state(g_fake_millis); }
 
+// Some visible text on his face contains `part`
+bool showing(const char *part, lv_obj_t *o = nullptr) {
+  if (!o) o = lv_scr_act();
+  if (lv_obj_has_flag(o, LV_OBJ_FLAG_HIDDEN)) return false;
+  if (lv_obj_check_type(o, &lv_label_class) && strstr(lv_label_get_text(o), part)) return true;
+  for (uint32_t i = 0; i < lv_obj_get_child_cnt(o); i++)
+    if (showing(part, lv_obj_get_child(o, i))) return true;
+  return false;
+}
+
 // Gravity at rest (the board upright: g along +x), with an optional jolt on z
 void imu(float extra_z = 0) { bot::motion(1.0f, 0.0f, extra_z, g_fake_millis); }
 void still(uint32_t ms) {
@@ -132,6 +144,8 @@ int main() {
   hooks.setup = [] { setup_called = true; };
   hooks.quietHours = [] { return quiet_hours; };
   hooks.buddy = [] { return buddy_on; };
+  hooks.faceClock = [] { return face_clock; };
+  hooks.faceClockMin = [] { return face_clock_min; };
   bot::begin(lv_scr_act(), hooks, g_fake_millis);
   advance(1000);
 
@@ -245,6 +259,38 @@ int main() {
   taps(1);
   CHECK(!demo::active(), "a tap ends the demo");
 
+  // ---- the time and temperature on his face
+  bot::weather(0, 12);
+  face_clock = 2;
+  advance(1100);
+  CHECK(showing("   12 C"), "always: the time and 12 C under his mouth");
+  face_clock = 0;
+  advance(1100);
+  CHECK(!showing("12 C"), "never: gone");
+  imu(0.9f);  // picked up
+  advance(1100);
+  still(200);
+  CHECK(!showing("12 C"), "never: not even when he's picked up");
+  face_clock = 1;
+  face_clock_min = 1;
+  advance(61 * 1000);
+  CHECK(showing("12 C"), "now and then: every minute here");
+  advance(9 * 1000);
+  CHECK(!showing("12 C"), "...for a few seconds");
+  advance(20 * 1000);
+  still(3000);
+  imu(0.9f);
+  advance(1100);
+  CHECK(showing("12 C"), "picked up: a look at the time");
+  advance(7000);
+  CHECK(!showing("12 C"), "...and back to his face");
+  face_clock_min = 15;
+  bot::weather(COLD, -4);
+  advance(1100);
+  bot::weather(HOT, 31);
+  advance(1100);
+  bot::weather(0, 12);
+
   // ---- falling asleep, and waking up
   played.clear();
   still(20);
@@ -265,6 +311,7 @@ int main() {
   bot::presence(g_fake_millis);
   advance(2000);
   CHECK(heard(Sound::CHIRP), "first person at the desk in the morning: good morning");
+  CHECK(showing("12 C"), "the day ahead: the temperature too");
   played.clear();
   bot::presence(g_fake_millis);
   advance(2000);

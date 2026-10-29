@@ -12,6 +12,7 @@ namespace weather {
 namespace {
 
 volatile uint8_t wear = 0;
+volatile int temp_c = -999;  // bot::kNoTemp
 char text[40] = "";
 portMUX_TYPE lock = portMUX_INITIALIZER_UNLOCKED;  // `text` is read by the main loop and the web page
 
@@ -27,6 +28,7 @@ void poll() {
   const Settings cfg = settings::copy();
   if (!cfg.lat.length() || !cfg.lon.length()) {
     wear = 0;
+    temp_c = -999;
     setText("");
     return;
   }
@@ -61,7 +63,10 @@ void poll() {
   if (wet_now || rain >= 60) w |= UMBRELLA;
   if (day && wmo <= 1 && temp >= 20.f && !(w & UMBRELLA)) w |= SUNGLASSES;
   if (temp <= 2.f || (wmo >= 71 && wmo <= 77) || wmo == 85 || wmo == 86) w |= SCARF;
+  if (temp < 0.f) w |= COLD;
+  if (temp > 28.f) w |= HOT;
   wear = w;
+  temp_c = int(lroundf(temp));
   char t[40];
   snprintf(t, sizeof t, "%.0f C%s", temp, wet_now ? ", raining" : rain >= 60 ? ", rain later" : "");
   setText(t);
@@ -69,6 +74,7 @@ void poll() {
 }
 
 uint8_t accessories() { return wear; }
+int temperature() { return temp_c; }
 
 void summary(char *out, size_t cap) {
   portENTER_CRITICAL(&lock);

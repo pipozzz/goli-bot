@@ -49,6 +49,8 @@ bool on_battery = false;
 Meeting meets[6];
 int meet_n = 0;
 uint8_t weather_mask = 0;
+int temp_now = kNoTemp;
+uint32_t clock_until = 0, clock_shown = 0;  // time and temperature on his face until / last shown
 uint32_t snooze_until = 0;      // knocked: alerts stay silent until then
 bool in_meeting = false;        // the calendar says you're in one: alerts stay silent
 bool quiet_on = false;          // "quiet" from the web page or Home Assistant
@@ -100,6 +102,17 @@ bool localTime(struct tm &lt) {
   const time_t t = wallClock();
   localtime_r(&t, &lt);
   return t > 1700000000;
+}
+
+int faceClock() { return hk.faceClock ? hk.faceClock() : 1; }
+
+// "14:32   12 C" for the line under his mouth; false without a clock
+bool clockLine(char *out, size_t cap) {
+  struct tm lt;
+  if (!localTime(lt)) return false;
+  const size_t n = strftime(out, cap, "%H:%M", &lt);
+  if (temp_now != kNoTemp) snprintf(out + n, cap - n, "   %d C", temp_now);
+  return true;
 }
 
 void setBrightness(int want) {
@@ -299,8 +312,19 @@ void tickSecond(uint32_t now) {
       const int32_t left = std::max<int32_t>(0, int32_t(break_until - now) / 1000);
       snprintf(pause, sizeof pause, tr(Txt::BREAK), int(left / 60), int(left % 60));
     }
+    // The time and temperature: always, or now and then (and when he's picked up) for a few seconds
+    const int fc = asleep ? 0 : faceClock();
+    if (!clock_shown) clock_shown = now;  // not right after he starts
+    if (fc == 1 && now - clock_shown >= (hk.faceClockMin ? std::max(1, hk.faceClockMin()) : 15) * 60000UL) {
+      clock_until = now + 8000;
+      clock_shown = now;
+    }
+    const bool glancing = fc && clock_until && int32_t(clock_until - now) > 0;
+    char clk[24] = "";
+    if (glancing || fc == 2) clockLine(clk, sizeof clk);
     if (said_until && int32_t(said_until - now) > 0) face.showStatus(said);
-    else face.showStatus(hint ? hint : *pause ? pause : in_meeting ? tr(Txt::IN_MEETING) : quiet_on ? tr(Txt::QUIET) : nullptr);
+    else face.showStatus(hint ? hint : *pause ? pause : glancing && *clk ? clk : in_meeting ? tr(Txt::IN_MEETING) :
+                         quiet_on ? tr(Txt::QUIET) : *clk ? clk : nullptr);
   }
 
   const time_t t = wallClock();
@@ -416,13 +440,18 @@ void daily(const struct tm &lt, uint32_t now) {
     face.setMood(Mood::HAPPY, 2500);
     chime(talks() ? Sound::YAY : Sound::CHIRP, now);
     say(tr(bday && !strcmp(bday, today) ? Txt::HAPPY_BIRTHDAY : Txt::GOOD_MORNING), 8000, now);
-    // The day ahead, in one line: meetings and what to wear
-    char brief[64];
+    // The day ahead, in one line: meetings, the temperature and what to wear
+    char brief[64] = "";
     const char *sky = weather_mask & UMBRELLA ? tr(Txt::RAIN_LATER) : weather_mask & SUNGLASSES ? tr(Txt::SUNNY) :
                       weather_mask & SCARF ? tr(Txt::FREEZING) : nullptr;
-    char meetings[32] = "";
+    char meetings[32] = "", temp[12] = "";
     if (meet_n) snprintf(meetings, sizeof meetings, meetingsText(meet_n), meet_n);
-    snprintf(brief, sizeof brief, "%s%s%s", meetings, *meetings && sky ? ", " : "", sky ? sky : "");
+    if (temp_now != kNoTemp) snprintf(temp, sizeof temp, "%d C", temp_now);
+    for (const char *part : {(const char *)meetings, (const char *)temp, sky ? sky : ""}) {
+      if (!*part) continue;
+      const size_t n = strlen(brief);
+      snprintf(brief + n, sizeof brief - n, "%s%s", n ? ", " : "", part);
+    }
     if (*brief && !(pairing_until && int32_t(pairing_until - now) > 0)) face.showTitle(brief, 8000);
   }
   if (friday_day != lt.tm_yday && lt.tm_wday == 5 && lt.tm_hour >= 17) {  // weekend!
@@ -584,6 +613,8 @@ void motion(float ax, float ay, float az, uint32_t now) {
     face.setMood(Mood::DIZZY, 2500);
   } else if (mo.takeJolt()) {
     wake(now);
+    clock_until = now + 6000;  // picked up: a look at the time, like a wristwatch
+    clock_shown = now;
     if (face.mood() != Mood::DIZZY) face.setMood(Mood::SURPRISED, 600);
   }
 }
@@ -643,8 +674,9 @@ void meetings(const Meeting *m, int n) {
   for (int i = 0; i < meet_n; i++) meets[i] = m[i];
 }
 
-void weather(uint8_t accessories) {
-  weather_mask = accessories & (SUNGLASSES | UMBRELLA | SCARF);
+void weather(uint8_t accessories, int temp_c) {
+  weather_mask = accessories & (SUNGLASSES | UMBRELLA | SCARF | COLD | HOT);
+  temp_now = temp_c;
   wear();
 }
 

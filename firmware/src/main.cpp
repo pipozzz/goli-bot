@@ -157,6 +157,8 @@ int breakMin() { return cfg.break_min; }
 int focusMin() { return cfg.focus_min; }
 int focusBreak() { return cfg.focus_break; }
 bool nightOff() { return cfg.night_off; }
+int faceClock() { return cfg.face_clock; }
+int faceClockMin() { return cfg.face_clock_min; }
 const char *birthday() { return cfg.birthday.length() == 5 ? cfg.birthday.c_str() : nullptr; }
 void alerted(AlertLevel level) { team::rang(int(level)); }
 
@@ -247,7 +249,9 @@ void pollSources(uint32_t now) {
   bot::Meeting m[6];
   bot::meetings(m, calendar::upcoming(m, 6));
   static uint8_t wear = 0xff;
-  if (weather::accessories() != wear) bot::weather(wear = weather::accessories());
+  static int temp = 1000;
+  if (weather::accessories() != wear || weather::temperature() != temp)
+    bot::weather(wear = weather::accessories(), temp = weather::temperature());
   int dir;
   if (team::takeGlance(dir)) bot::teamAlert(dir, now);
   char reminder[48];
@@ -454,6 +458,8 @@ void setup() {
   hooks.breakAfterFocus = focusBreak;
   hooks.weather = weather::summary;
   hooks.nightOff = nightOff;
+  hooks.faceClock = faceClock;
+  hooks.faceClockMin = faceClockMin;
   bot::begin(lv_scr_act(), hooks, millis());
   const time_t t = time(nullptr);  // from the RTC already
   if (t > 1700000000 && prefs.getInt("yfor", 0) == dateOf(t)) bot::yesterday(prefs.getInt("ya"), prefs.getInt("yc"));

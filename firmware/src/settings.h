@@ -40,6 +40,8 @@ struct Settings {
   int focus_min = FOCUS_MIN;  // focus mode (3 taps)
   int focus_break = 5;      // minutes of break after it (0 = none)
   bool night_off = false;   // screen off while he sleeps in quiet hours
+  int face_clock = 1;       // time and temperature on his face: 0 never, 1 now and then, 2 always
+  int face_clock_min = 15;  // "now and then": every this many minutes
   String lang = "en";      // Goli's words on the screen: en, sk, cs, de
 
   // Home Assistant (MQTT discovery); empty host = off

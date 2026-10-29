@@ -10,6 +10,7 @@
 #include "rules.h"
 #include "settings.h"
 #include "tls.h"
+#include "weather.h"
 
 namespace mqtt {
 namespace {
@@ -87,6 +88,12 @@ void discovery() {
     d["ic"] = s.icon;
     announce("sensor", s.id, s.name, d);
   }
+  JsonDocument out;  // what his weather says outside (Open-Meteo)
+  out["stat_t"] = state;
+  out["val_tpl"] = "{{ value_json.temp if value_json.temp is defined else none }}";
+  out["dev_cla"] = "temperature";
+  out["unit_of_meas"] = "\u00b0C";
+  announce("sensor", "temp", "Outside temperature", out);
   const Sensor binaries[] = {{"focus", "Focus", "{{ 'ON' if value_json.focus else 'OFF' }}", "mdi:timer-sand"},
                              {"present", "Someone at the desk", "{{ 'ON' if value_json.present else 'OFF' }}", ""},
                              {"meeting", "In a meeting", "{{ 'ON' if value_json.meeting else 'OFF' }}", "mdi:calendar-account"}};
@@ -140,6 +147,8 @@ void publishState(const bot::State &s) {
   d["meeting"] = s.in_meeting;
   d["quiet"] = s.quiet;
   d["timer_s"] = s.timer_s;
+  const int temp = weather::temperature();
+  if (temp != bot::kNoTemp) d["temp"] = temp;
   String out;
   serializeJson(d, out);
   client.publish((base + "/state").c_str(), out.c_str(), true);

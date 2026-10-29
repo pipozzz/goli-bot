@@ -34,7 +34,11 @@ struct Hooks {
   int (*breakAfterFocus)() = nullptr;                // minutes of break after a focus session (0 = none)
   void (*weather)(char *out, size_t cap) = nullptr;  // "11 C, rain later" for the clock page
   bool (*nightOff)() = nullptr;                      // screen fully off while he sleeps in quiet hours
+  int (*faceClock)() = nullptr;                      // time and temperature on his face: 0 never, 1 now and then, 2 always
+  int (*faceClockMin)() = nullptr;                   // "now and then": every this many minutes (nullptr: 15)
 };
+
+const int kNoTemp = -999;  // the temperature isn't known
 
 struct Meeting {
   char title[48];
@@ -56,7 +60,7 @@ void loud(bool on);
 void power(int percent, bool charging, bool on_battery);  // percent < 0 = no battery
 
 void meetings(const Meeting *m, int n);   // today's meetings from now on, earliest first
-void weather(uint8_t accessories);        // what the weather says to wear (Accessory bits)
+void weather(uint8_t accessories, int temp_c = kNoTemp);  // what to wear (Accessory bits), and °C outside
 void presence(uint32_t now);              // someone is at the desk (voices, typing, moving him)
 void knock(uint32_t now);                 // two knocks on the desk: snooze alerts for 10 minutes
 void teamAlert(int dir, uint32_t now);    // a Goli next to him rang: look that way (-1 left, +1 right)

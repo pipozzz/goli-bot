@@ -12,6 +12,7 @@ enum class Mood { TIRED, HAPPY, SURPRISED, DIZZY, DROWSY, ASLEEP, WINK, ALARMED,
 // Things Goli wears: from the weather, the season and your birthday (bit mask)
 enum Accessory : uint8_t {
   SUNGLASSES = 1, UMBRELLA = 2, SCARF = 4, PARTY_HAT = 8, SANTA_HAT = 16,
+  COLD = 32, HOT = 64,  // not worn: below 0 °C he shivers now and then, above 28 °C a drop of sweat
 };
 
 // Goli's animated face, drawn with plain LVGL objects on a 466×466 screen.
@@ -78,7 +79,7 @@ class Face {
   lv_obj_t *badge_ = nullptr, *badge_txt_ = nullptr, *title_ = nullptr, *status_ = nullptr, *battery_ = nullptr;
   lv_obj_t *clock_ = nullptr, *focus_arc_ = nullptr, *focus_txt_ = nullptr;
   bool clock_on_ = false, meeting_on_ = false;
-  lv_obj_t *shades_[2] = {}, *umbrella_ = nullptr, *scarf_ = nullptr, *hat_ = nullptr, *drops_[3] = {};
+  lv_obj_t *shades_[2] = {}, *umbrella_ = nullptr, *scarf_ = nullptr, *hat_ = nullptr, *drops_[3] = {}, *sweat_ = nullptr;
   uint8_t hat_kind_ = 0, accessories_ = 0;
   float fatigue_ = 0.f;
   int glance_dir_ = 0;
