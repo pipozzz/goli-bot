@@ -1,7 +1,8 @@
 # MakerWorld listing (draft)
 
-Ready to paste once there are photos of a printed Goli. Upload `stl/goli_body_multicolor.3mf` as the main
-print profile and the other STLs as extra plates.
+Ready to paste once there are photos of a printed Goli. Upload `stl/goli_body_multicolor.3mf` and
+`stl/goli_body_single.3mf` as two print profiles (multi-colour 17 h / one colour 7 h + paint markers),
+and the other STLs as extra plates.
 
 **Title:** Goli – a desk robot with an AMOLED face that rings when your deploys drift
 
@@ -23,7 +24,7 @@ your desk he is a 15 cm robot whose face is a round touch screen:
   updates himself over Wi-Fi.
 
 **Print:** Bambu Lab A1 mini or any 180 mm printer. The body is one multi-colour object (blue, cream,
-red; AMS lite), about 17 h at 0.2 mm with tree supports from the plate. Bezel, bracket, back plate and
+red; AMS lite), about 17 h at 0.2 mm, or one colour in about 7 h and painted with acrylic markers, with tree supports from the plate. Bezel, bracket, back plate and
 bell are single-colour and print without supports.
 
 **You also need:** Waveshare ESP32-S3-Touch-AMOLED-1.75 (without case), an 8 Ω 1 W speaker with an

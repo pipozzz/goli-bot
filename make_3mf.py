@@ -1,5 +1,6 @@
-"""Builds stl/goli_body_multicolor.3mf: the body, belly and accents as one object with three
-filaments, for the Bambu Lab A1 mini with the AMS lite (open it in Bambu Studio and print).
+"""Builds the body's Bambu Studio projects for the A1 mini (open one in Bambu Studio and print):
+stl/goli_body_multicolor.3mf, the body, belly and accents as one object with three filaments (AMS lite),
+and stl/goli_body_single.3mf, the body alone in one filament (much faster; paint the details after).
 
 Uses Bambu Studio's own command line, so the project opens exactly like one saved from the app.
 Run after goli_bot.py:  python3 make_3mf.py   (BAMBU_STUDIO=/path/to/BambuStudio to override)
@@ -57,10 +58,9 @@ def resolve(kind, name):
     return out
 
 
-def main():
-    if not os.path.exists(STUDIO):
-        sys.exit(f"Bambu Studio not found at {STUDIO}; set BAMBU_STUDIO")
-    out = os.path.join(HERE, "stl", "goli_body_multicolor.3mf")
+def build(name, parts):
+    """One Bambu Studio project in stl/ from STL parts [(file, colour)], one filament per part."""
+    out = os.path.join(HERE, "stl", name)
     with tempfile.TemporaryDirectory() as tmp:
         process = resolve("process", PROCESS)
         process.update(PROCESS_OVERRIDES)
@@ -68,7 +68,7 @@ def main():
         with open(process_path, "w") as fh:
             json.dump(process, fh)
         filaments = []
-        for i, (_, colour) in enumerate(PARTS):
+        for i, (_, colour) in enumerate(parts):
             f = resolve("filament", FILAMENT)
             f["filament_colour"] = [colour]
             filaments.append(os.path.join(tmp, f"filament{i}.json"))
@@ -78,12 +78,19 @@ def main():
         cmd = [STUDIO, "--assemble", "--arrange", "1",  # one object: arranging keeps the parts registered
                "--load-settings", f"{machine};{process_path}",
                "--load-filaments", ";".join(filaments),
-               "--load-filament-ids", ",".join(str(i + 1) for i in range(len(PARTS))),
-               "--export-3mf", out] + [os.path.join(HERE, "stl", f) for f, _ in PARTS]
+               "--load-filament-ids", ",".join(str(i + 1) for i in range(len(parts))),
+               "--export-3mf", out] + [os.path.join(HERE, "stl", f) for f, _ in parts]
         r = subprocess.run(cmd, capture_output=True, text=True)
         if r.returncode or not os.path.exists(out):
             sys.exit(f"Bambu Studio failed ({r.returncode}):\n{r.stdout[-2000:]}{r.stderr[-2000:]}")
     print("wrote", os.path.relpath(out, HERE))
+
+
+def main():
+    if not os.path.exists(STUDIO):
+        sys.exit(f"Bambu Studio not found at {STUDIO}; set BAMBU_STUDIO")
+    build("goli_body_multicolor.3mf", PARTS)  # AMS lite: about 17 h (280 filament changes)
+    build("goli_body_single.3mf", PARTS[:1])  # one filament: about 7 h; paint the belly and cheeks after
 
 
 if __name__ == "__main__":

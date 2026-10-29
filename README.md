@@ -38,7 +38,8 @@ About 108 × 65 × 150 mm with the bell on. Every part fits the Bambu Lab A1 min
 
 | File | Colour | Orientation | Notes |
 |---|---|---|---|
-| `goli_body_blue.stl` + `goli_belly_cream.stl` + `goli_accents_red.stl` | blue / cream / red | upright, as exported | One multi-colour object (see below). Tree supports, build plate only, for the arm undersides. |
+| `goli_body_single.3mf`, or `goli_body_blue.stl` alone | blue | upright, as exported | The quick way: about 7 h, paint the details after. Tree supports, build plate only, for the arm undersides. |
+| `goli_body_multicolor.3mf` (`goli_body_blue.stl` + `goli_belly_cream.stl` + `goli_accents_red.stl`) | blue / cream / red | upright, as exported | One multi-colour object for the AMS lite, about 17 h. |
 | `goli_bezel_navy.stl` | navy | face down | No supports. |
 | `goli_bracket_any.stl` | any | as exported | No supports. |
 | `goli_backplate_blue.stl` | blue | outer face down | No supports. |
@@ -50,13 +51,41 @@ PLA, 0.2 mm layers (0.12 mm for the bell and mug), 3 walls, 15 % gyroid.
 The inside of the body is designed to print without supports: the roof is a 45° cone, and the face socket
 and screw bosses have 45° undersides.
 
+**The quick way (one colour, about 7 h):** open **`stl/goli_body_single.3mf`** in Bambu Studio and print it
+in blue PLA (0.20 mm, 3 walls, 15 % gyroid, tree supports from the plate; 111 g). Then paint the belly,
+card, badge and cheeks (see *Painting* below). The multi-colour print below takes 17 h, and 10 of those
+hours are the AMS lite changing filament about 280 times.
+
 **Multi-colour body (AMS lite):** open **`stl/goli_body_multicolor.3mf`** in Bambu Studio. It is one object
 with three parts already on filaments 1–3 (blue, cream, red), set up for the A1 mini with 0.20 mm layers,
 3 walls, 15 % gyroid and tree supports from the plate. Map the three filaments to your AMS slots and print:
 about 17 h and 150 / 58 / 13 g of blue / cream / red PLA, purging included.
-With a single colour, just print `goli_body_blue.stl`. The belly, card and cheeks stand out in relief either way.
+With a single colour, use the quick way above.
 
-To rebuild the 3MF after changing the model, run `python3 make_3mf.py`. It uses Bambu Studio's command line,
+### Painting
+
+The belly, the card on it, the red badge and the cheeks all stand out from the body by 0.8-2.8 mm, so
+their edges stop the paint by themselves.
+
+You need acrylic paint markers with a fine tip, for example Posca PC-3M (or PC-1MR for the cheeks'
+edges): **ivory** or **beige** for the belly and card, **red** for the badge and cheeks.
+
+1. Wipe the print with isopropyl alcohol so the paint sticks; let it dry.
+2. Shake the marker and prime it on paper until the paint flows evenly.
+3. Paint each area's raised **edge first**, going round it with the tip held flat against the step, then
+   fill the middle. Thin coats: two thin ones cover better than one thick one. Wait about 15 minutes
+   between coats.
+4. Belly: leave the **stitching** (the little dashes sunk into its edge) blue; it then reads as a seam.
+   Paint the card on top of the belly in the same cream; its two slots are the speaker grille.
+5. Badge: red; the "!" is sunk in, leave it blue or dot it with a dark marker.
+6. Cheeks: red, with a light touch: they're the thinnest (0.8 mm).
+7. Optional: a light coat of matte clear spray once everything is dry (a day), so it doesn't wear off
+   where you pick him up.
+
+A slip of the marker comes off with a cotton bud dipped in water while the paint is wet, or with a
+fingernail once it's dry.
+
+To rebuild the 3MF files after changing the model, run `python3 make_3mf.py`. It uses Bambu Studio's command line,
 so Bambu Studio must be installed.
 
 ## Assembly
