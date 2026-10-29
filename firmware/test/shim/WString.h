@@ -30,6 +30,10 @@ class String {
   }
   void remove(unsigned idx, unsigned count = 0xffffffff) { if (idx < s_.size()) s_.erase(idx, count); }
   long toInt() const { return atol(s_.c_str()); }
+  void trim() {
+    const size_t a = s_.find_first_not_of(" \t\r\n"), b = s_.find_last_not_of(" \t\r\n");
+    s_ = a == std::string::npos ? "" : s_.substr(a, b - a + 1);
+  }
   bool operator==(const char *o) const { return s_ == o; }
   bool operator==(const String &o) const { return s_ == o.s_; }
   bool operator!=(const String &o) const { return s_ != o.s_; }

@@ -2,12 +2,12 @@
 
 #include <lvgl.h>
 
+#include "alert.h"
+
 // Goli's expressions. TIRED is his resting face: heavy lids, worried brows, wavy mouth.
 enum class Mood { TIRED, HAPPY, SURPRISED, DIZZY, DROWSY, ASLEEP, WINK, ALARMED, FOCUSED, WINCE };
 
-// How much a Goliash alert matters: an agent came back (GOOD), something changed (INFO),
-// or something is broken or vulnerable (CRITICAL).
-enum class AlertLevel : uint8_t { GOOD, INFO, CRITICAL };
+
 
 // Things Goli wears: from the weather, the season and your birthday (bit mask)
 enum Accessory : uint8_t {

@@ -39,6 +39,10 @@ DISP_ROT = -90          # board rotated so USB-C points down
 PCB_NUTS = [(0, 20.5), (13.75, -14.7), (-13.75, -14.7)]
 USB_HALF_W = 7.0        # plug clearance
 
+# optional battery: a 1000 mAh LiPo, size 103450 (50 x 34 x 10 mm), on a cradle above the floor's curve
+BATTERY = (50.0, 34.0, 10.0)
+BATT_Z = 6.0            # its underside (the floor curves up at the front corners below this)
+
 # bezel
 LIP_R = VA_R + 0.25     # visible opening
 LIP_T = 1.6
@@ -360,6 +364,21 @@ def build():
     screw_holes = Manifold.batch_boolean(
         [cyl_y(0.85, y_back - 1, y_back + 9, x=x, z=z, seg=24) for x, z in screws],
         OpType.Add)
+
+    # ---- battery cradle: three rails lift it clear of the floor's curve, low stops on each side keep
+    # it in place (a strip of double-sided tape holds it down); prints with the body, no supports
+    bw, bd, bh = BATTERY
+    by0 = y_back + 10.3                         # just in front of the back plate's screw pillars
+    top = BATT_Z + 4.0                          # the stops reach 4 mm up its sides
+    cradle = [box(x - 1.5, x + 1.5, by0, by0 + bd, FLOOR - 0.1, BATT_Z) for x in (-0.36 * bw, 0, 0.36 * bw)]
+    for sx in (-1, 1):
+        x_in = sx * (bw / 2 + 0.6)
+        cradle.append(box(min(x_in, x_in + sx * 1.6), max(x_in, x_in + sx * 1.6),
+                          by0 + bd / 2 - 6, by0 + bd / 2 + 6, FLOOR - 0.1, top))
+    cradle.append(box(-6, 6, by0 - 2.2, by0 - 0.6, FLOOR - 0.1, top))           # behind it
+    cradle.append(box(-6, 6, by0 + bd + 0.6, by0 + bd + 2.2, FLOOR - 0.1, top))  # in front
+    cradle = Manifold.batch_boolean(cradle, OpType.Add) ^ cavity                  # never through the wall
+    fixings = fixings + cradle                  # kept when the cavity is hollowed out
 
     # ---- body assembly
     body = outer + Manifold.batch_boolean(ears + arms + feet, OpType.Add) + stalk

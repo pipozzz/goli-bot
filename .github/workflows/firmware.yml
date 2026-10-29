@@ -35,10 +35,10 @@ jobs:
       - name: Install PlatformIO
         # esptool 5.0.0-dev1 from the pinned platform breaks with click >= 8.2
         run: pip install platformio==6.1.18 click==8.1.7 pillow
-      - name: Host tests (calendar reader, translations)
-        run: firmware/test/run.sh
       - name: Build
         run: pio run -e goli -d firmware
+      - name: Host tests (calendar reader, alert rules, translations)
+        run: firmware/test/run.sh
       - name: Render the faces (host build)
         working-directory: firmware
         run: |

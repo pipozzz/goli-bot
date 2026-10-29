@@ -21,6 +21,7 @@
 #include "mqtt.h"
 #include "ota.h"
 #include "reminders.h"
+#include "rules.h"
 #include "settings.h"
 #include "sound.h"
 #include "team.h"
@@ -92,41 +93,6 @@ bool bearer() {
   return server.hasArg("key") && same(server.arg("key"), settings::get().api_key);
 }
 
-AlertLevel parseLevel(const char *s);
-
-// Alertmanager (Prometheus) and Grafana's alerting both post {"status", "alerts": [{labels, annotations}]}
-bool fromAlertmanager(JsonObjectConst msg) {
-  JsonArrayConst list = msg["alerts"];
-  if (!list.size()) return false;
-  JsonObjectConst first = list[0];
-  const bool resolved = !strcmp(msg["status"] | (first["status"] | "firing"), "resolved");
-  AlertLevel level = AlertLevel::INFO;
-  int firing = 0;
-  for (JsonObjectConst a : list) {
-    if (!resolved && !strcmp(a["status"] | "firing", "resolved")) continue;  // already over, sent along with the group
-    firing++;
-    const char *sev = a["labels"]["severity"] | "";
-    if (!strcmp(sev, "critical") || !strcmp(sev, "page") || !strcmp(sev, "error")) level = AlertLevel::CRITICAL;
-  }
-  if (resolved) level = AlertLevel::GOOD;
-  const char *what = msg["title"] | (first["annotations"]["summary"] | (first["labels"]["alertname"] | "alert"));
-  char title[96];
-  snprintf(title, sizeof title, "%s%s", what, resolved && !msg["title"].is<const char *>() ? " - resolved" : "");
-  return goliash::pushAlert(title, level, std::max(1, resolved ? int(list.size()) : firing));
-}
-
-// Uptime Kuma: {"heartbeat": {"status": 0 down | 1 up | 2 pending | 3 maintenance}, "monitor": {"name"}, "msg"};
-// its test button and certificate notices send heartbeat: null and only a message
-bool fromUptimeKuma(JsonObjectConst msg) {
-  if (!msg["heartbeat"].is<JsonObjectConst>()) return goliash::pushAlert(msg["msg"] | "Uptime Kuma", AlertLevel::INFO);
-  const char *name = msg["monitor"]["name"] | "a monitor";
-  const int status = msg["heartbeat"]["status"] | -1;
-  char title[96];
-  if (status == 0 || status == 1) snprintf(title, sizeof title, "%s is %s", name, status == 1 ? "up" : "down");
-  else snprintf(title, sizeof title, "%s: %s", name, status == 3 ? "maintenance" : "pending");
-  return goliash::pushAlert(title, status == 1 ? AlertLevel::GOOD : status == 0 ? AlertLevel::CRITICAL : AlertLevel::INFO);
-}
-
 // Only answer requests made to Goli by his name or address: a page elsewhere can't reach him
 // through DNS rebinding (a hostile name pointed at his IP)
 bool ourHost() {
@@ -190,11 +156,6 @@ void reply(int code, const char *msg) {
   server.send(code, "application/json", out);
 }
 
-AlertLevel parseLevel(const char *s) {
-  if (!strcmp(s, "critical")) return AlertLevel::CRITICAL;
-  if (!strcmp(s, "good")) return AlertLevel::GOOD;
-  return AlertLevel::INFO;
-}
 
 void notify() {
   const String body = server.arg("plain");
@@ -205,22 +166,12 @@ void notify() {
   if (!body.length()) return reply(415, "send JSON with Content-Type: application/json");
   if (deserializeJson(doc, body)) return reply(400, "send JSON");
   JsonObjectConst msg = doc.as<JsonObjectConst>();
+  const rules::Hook hook = rules::webhook(msg);
   bool rang;
-  if (msg["items"].is<JsonArrayConst>()) {  // a Goliash notifier message
-    rang = goliash::pushMessage(msg);
-  } else if (msg["alerts"].is<JsonArrayConst>()) {  // Alertmanager, Grafana
-    rang = fromAlertmanager(msg);
-  } else if (msg["heartbeat"].is<JsonObjectConst>() ||
-             (msg["msg"].is<const char *>() && !msg["title"].is<const char *>())) {  // Uptime Kuma (also its test)
-    rang = fromUptimeKuma(msg);
-  } else {
-    const char *title = msg["title"] | "";
-    if (!*title) return reply(400, "title is required");
-    AlertLevel level = parseLevel(msg["level"] | "info");
-    const char *state = msg["state"] | "";  // Grafana's legacy alerts: "alerting" / "ok"
-    if (!strcmp(state, "alerting")) level = AlertLevel::CRITICAL;
-    else if (!strcmp(state, "ok")) level = AlertLevel::GOOD;
-    rang = goliash::pushAlert(title, level);
+  switch (hook.kind) {
+    case rules::Hook::GOLIASH: rang = goliash::pushMessage(msg); break;
+    case rules::Hook::INVALID: return reply(400, hook.error);
+    default: rang = goliash::pushAlert(hook.title, hook.level, hook.count);
   }
   reply(202, rang ? "ringing" : "filtered out");
 }
@@ -465,7 +416,7 @@ void test() {
   NEED_SESSION();
   JsonDocument in;
   if (!readJson(in)) return;
-  goliash::pushAlert(in["title"] | "Hello from the web page", parseLevel(in["level"] | "info"));
+  goliash::pushAlert(in["title"] | "Hello from the web page", rules::parseLevel(in["level"] | "info"));
   reply(202, "ringing");
 }
 

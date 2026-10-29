@@ -14,6 +14,7 @@
 #include "config.h"
 #include "github.h"
 #include "ota.h"
+#include "rules.h"
 #include "settings.h"
 #include "team.h"
 #include "watch.h"
@@ -62,54 +63,12 @@ int64_t parseTime(const char *s) {
 }
 
 
-// What one notification item means for Goli (types from Goliash's notifier)
-AlertLevel levelOf(JsonObjectConst item) {
-  const char *type = item["type"] | "";
-  static const char *critical[] = {"agent_stale", "vulnerability", "security_release", "unexpected_signer",
-                                   "evidence_lost", "error"};
-  for (const char *c : critical)
-    if (!strcmp(type, c)) return AlertLevel::CRITICAL;
-  if (!strcmp(type, "drift_detected")) return item["production"] | false ? AlertLevel::CRITICAL : AlertLevel::INFO;
-  if (!strcmp(type, "agent_back") || !strcmp(type, "drift_resolved")) return AlertLevel::GOOD;
-  return AlertLevel::INFO;
-}
-
-// Does an item pass the filter from setup? Items without an environment or a service always pass.
-bool wanted(const Settings &cfg, JsonObjectConst item, AlertLevel level) {
-  if (cfg.min_level >= int(AlertLevel::CRITICAL) && level != AlertLevel::CRITICAL) return false;
-  if (cfg.prod_only && item["environment"].is<const char *>() && !(item["production"] | false)) return false;
-  const char *svc = item["service"] | "";
-  if (cfg.services.length() && *svc) {
-    for (int from = 0; from <= int(cfg.services.length());) {
-      int comma = cfg.services.indexOf(',', from);
-      if (comma < 0) comma = cfg.services.length();
-      String name = cfg.services.substring(from, comma);
-      name.trim();
-      if (name.equalsIgnoreCase(svc)) return true;
-      from = comma + 1;
-    }
-    return false;
-  }
-  return true;
-}
-
-// A release that reached production
-bool prodDeploy(JsonObjectConst item) {
-  const char *type = item["type"] | "";
-  return (item["production"] | false) && (!strcmp(type, "deployed") || !strcmp(type, "rollout"));
-}
-
-// The worst level among the items that pass the filter; false when none does.
-bool judge(const Settings &cfg, JsonArrayConst items, AlertLevel &level, bool *prod = nullptr) {
-  bool any = false;
-  for (JsonObjectConst item : items) {
-    const AlertLevel l = levelOf(item);
-    if (!wanted(cfg, item, l)) continue;
-    if (prod && prodDeploy(item)) *prod = true;
-    level = any ? std::max(level, l) : l;
-    any = true;
-  }
-  return any;
+rules::Filter filterOf(const Settings &cfg) {
+  rules::Filter f;
+  f.min_level = cfg.min_level;
+  f.prod_only = cfg.prod_only;
+  f.services = cfg.services;
+  return f;
 }
 
 void queue(const char *title, int count, AlertLevel level, bool prod_deploy = false) {
@@ -198,7 +157,7 @@ void poll() {
     const int64_t t = parseTime(m["sent_at"]);
     if (t > newest) newest = t;
     AlertLevel l;
-    if (last_ms && t > last_ms && judge(cfg, m["items"], l, &prod)) {
+    if (last_ms && t > last_ms && rules::judge(filterOf(cfg), m["items"], l, &prod)) {
       if (!title) title = m["title"] | "";
       level = fresh ? std::max(level, l) : l;
       fresh++;
@@ -294,7 +253,7 @@ bool pushMessage(JsonObjectConst msg) {
   AlertLevel level;
   bool prod = false;
   JsonArrayConst items = msg["items"];
-  if (!alerts || !judge(settings::copy(), items, level, &prod)) return false;
+  if (!alerts || !rules::judge(filterOf(settings::copy()), items, level, &prod)) return false;
   char title[96];
   if (items.size() == 1) snprintf(title, sizeof title, "%s", (const char *)(items[0]["text"] | "Goliash"));
   else snprintf(title, sizeof title, "%u updates in %s", unsigned(items.size()), (const char *)(msg["workspace"] | "Goliash"));

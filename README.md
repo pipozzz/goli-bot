@@ -32,7 +32,7 @@ About 108 × 65 × 150 mm with the bell on. Every part fits the Bambu Lab A1 min
 | 3× M2×6 self-tapping screws | Bracket → bezel |
 | 3× M2×8 self-tapping screws | Back plate → body |
 | USB-C cable | Goes through the slot in the back plate. A right-angle plug fits best. |
-| Optional: 3.7 V LiPo (~1000 mAh, MX1.25) | Sits in the base. The board's power button is inside the body, so plan for USB power or leave the board on. On battery the screen goes dark after he has slept for 30 min; touch or move him to wake him. |
+| Optional: 3.7 V LiPo, 1000 mAh, size **103450** (50 × 34 × 10 mm), MX1.25 plug | Lies on a cradle in the base (three rails and stops, printed with the body); a strip of double-sided tape holds it. The board's power button is inside the body, so plan for USB power or leave the board on. On battery the screen goes dark after he has slept for 30 min; touch or move him to wake him. |
 
 ## Print
 
@@ -96,7 +96,8 @@ so Bambu Studio must be installed.
    the notch in the bezel.
 4. Push the bezel into the face socket from the front. From inside, screw the bracket to the bezel tube
    (3× M2×6 self-tapping). The body wall is clamped between the bezel and the bracket.
-5. Plug in the speaker (and the battery). Route the USB-C cable down and out through the back plate slot.
+5. Plug in the speaker. With a battery: stick it onto the cradle in the base (label up, cable towards the
+   back) and plug it into BAT. Route the USB-C cable down and out through the back plate slot.
 6. Close the back plate (3× M2×8). Press the bell onto the antenna peg; add a drop of glue if it is loose.
 
 ## Firmware
@@ -188,7 +189,9 @@ drift, an agent coming back) with sounds, no Wi-Fi needed. Any tap stops it. Mad
 
 `firmware/test/run.sh` runs host tests without a board (CI runs them too): the calendar reader against
 real-world iCalendar cases (time zones, weekly and daily repeats, EXDATE, moved and cancelled instances,
-VALARM, free time, folded lines, COUNT/UNTIL) and every translation's format string.
+VALARM, free time, folded lines, COUNT/UNTIL), what rings and how loud (Goliash items and the filter,
+Alertmanager, Grafana and Uptime Kuma webhooks), and every translation's format string. It needs
+ArduinoJson from one firmware build.
 
 ### Simulator
 

@@ -7,6 +7,7 @@
 
 #include "api.h"
 #include "goliash.h"
+#include "rules.h"
 #include "settings.h"
 
 namespace mqtt {
@@ -21,9 +22,6 @@ bot::State shared;
 bool shared_set = false;
 portMUX_TYPE lock = portMUX_INITIALIZER_UNLOCKED;
 
-AlertLevel levelOf(const char *s) {
-  return !strcmp(s, "critical") ? AlertLevel::CRITICAL : !strcmp(s, "good") ? AlertLevel::GOOD : AlertLevel::INFO;
-}
 
 void received(char *topic, uint8_t *payload, unsigned int len) {
   String t = topic, body;
@@ -43,7 +41,7 @@ void received(char *topic, uint8_t *payload, unsigned int len) {
     JsonDocument doc;
     if (deserializeJson(doc, body)) return;
     const char *title = doc["title"] | "";
-    if (*title) goliash::pushAlert(title, levelOf(doc["level"] | "info"));
+    if (*title) goliash::pushAlert(title, rules::parseLevel(doc["level"] | "info"));
   }
 }
 

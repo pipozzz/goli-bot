@@ -1,4 +1,4 @@
-// Host tests for Goli's portable code: the iCalendar reader and the translations.
+// Host tests for Goli's portable code: the iCalendar reader, what rings (rules) and the translations.
 //   firmware/test/run.sh   (also in CI)
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,7 +8,10 @@
 #include <string>
 #include <vector>
 
+#include <ArduinoJson.h>
+
 #include "ics.h"
+#include "rules.h"
 #include "text.h"
 
 static int failures = 0, checks = 0;
@@ -178,11 +181,96 @@ static void testText() {
   setLanguage("en");
 }
 
+static rules::Hook hook(const char *json) {
+  static JsonDocument doc;
+  doc.clear();
+  deserializeJson(doc, json);
+  return rules::webhook(doc.as<JsonObjectConst>());
+}
+
+static void testRules() {
+  using rules::Hook;
+  Hook h = hook(R"({"title":"nightly build failed","level":"critical"})");
+  CHECK(h.kind == Hook::PLAIN && h.level == AlertLevel::CRITICAL && !strcmp(h.title, "nightly build failed"), "plain");
+  h = hook(R"({"level":"good"})");
+  CHECK(h.kind == Hook::INVALID && h.error, "plain without a title is refused");
+  h = hook(R"({"title":"CPU","state":"alerting"})");
+  CHECK(h.kind == Hook::PLAIN && h.level == AlertLevel::CRITICAL, "Grafana legacy alerting");
+  h = hook(R"({"title":"CPU","state":"ok"})");
+  CHECK(h.level == AlertLevel::GOOD, "Grafana legacy ok");
+
+  // Alertmanager: a firing group with one already resolved alert inside
+  h = hook(R"({"status":"firing","alerts":[
+      {"status":"firing","labels":{"alertname":"DiskFull","severity":"warning"},"annotations":{"summary":"disk 95%"}},
+      {"status":"resolved","labels":{"alertname":"NodeDown","severity":"critical"}}]})");
+  CHECK(h.kind == Hook::ALERTMANAGER && h.level == AlertLevel::INFO && h.count == 1 && !strcmp(h.title, "disk 95%"),
+        "Alertmanager: resolved ones in a firing group don't count (level %d count %d '%s')", int(h.level), h.count, h.title);
+  h = hook(R"({"status":"firing","alerts":[{"status":"firing","labels":{"alertname":"NodeDown","severity":"critical"}}]})");
+  CHECK(h.level == AlertLevel::CRITICAL && !strcmp(h.title, "NodeDown"), "Alertmanager critical");
+  h = hook(R"({"status":"resolved","alerts":[{"status":"resolved","labels":{"alertname":"NodeDown"}}]})");
+  CHECK(h.level == AlertLevel::GOOD && !strcmp(h.title, "NodeDown - resolved"), "Alertmanager resolved: '%s'", h.title);
+  h = hook(R"({"status":"firing","title":"[FIRING:1] HighLatency","alerts":[{"status":"firing","labels":{"severity":"page"}}]})");
+  CHECK(h.level == AlertLevel::CRITICAL && !strcmp(h.title, "[FIRING:1] HighLatency"), "Grafana alerting title");
+
+  // Uptime Kuma
+  h = hook(R"({"heartbeat":{"status":0},"monitor":{"name":"shop"},"msg":"down"})");
+  CHECK(h.kind == Hook::UPTIME_KUMA && h.level == AlertLevel::CRITICAL && !strcmp(h.title, "shop is down"), "Kuma down");
+  h = hook(R"({"heartbeat":{"status":1},"monitor":{"name":"shop"},"msg":"up"})");
+  CHECK(h.level == AlertLevel::GOOD && !strcmp(h.title, "shop is up"), "Kuma up");
+  h = hook(R"({"heartbeat":{"status":3},"monitor":{"name":"shop"},"msg":"x"})");
+  CHECK(h.level == AlertLevel::INFO, "Kuma maintenance is just info");
+  h = hook(R"({"heartbeat":null,"monitor":null,"msg":"Uptime Kuma test"})");
+  CHECK(h.kind == Hook::UPTIME_KUMA && !strcmp(h.title, "Uptime Kuma test"), "Kuma's test button");
+
+  h = hook(R"({"workspace":"acme","items":[{"type":"deployed"}]})");
+  CHECK(h.kind == Hook::GOLIASH, "a Goliash message goes to the Goliash path");
+
+  // Goliash items and the filter
+  JsonDocument d;
+  deserializeJson(d, R"([
+    {"type":"drift_detected","service":"payments","environment":"prod","production":true},
+    {"type":"drift_detected","service":"payments","environment":"staging"},
+    {"type":"deployed","service":"checkout","environment":"prod","production":true},
+    {"type":"agent_stale"},
+    {"type":"agent_back"}])");
+  JsonArrayConst items = d.as<JsonArrayConst>();
+  CHECK(rules::levelOf(items[0]) == AlertLevel::CRITICAL, "drift in production is critical");
+  CHECK(rules::levelOf(items[1]) == AlertLevel::INFO, "drift in staging is info");
+  CHECK(rules::levelOf(items[3]) == AlertLevel::CRITICAL && rules::levelOf(items[4]) == AlertLevel::GOOD, "agents");
+  CHECK(rules::prodDeploy(items[2]) && !rules::prodDeploy(items[0]), "production deploy");
+
+  rules::Filter all;
+  AlertLevel level;
+  bool prod = false;
+  CHECK(rules::judge(all, items, level, &prod) && level == AlertLevel::CRITICAL && prod, "worst level, prod deploy seen");
+
+  rules::Filter crit;
+  crit.min_level = 2;
+  CHECK(!rules::wanted(crit, items[1], AlertLevel::INFO) && rules::wanted(crit, items[0], AlertLevel::CRITICAL),
+        "critical only");
+
+  rules::Filter prodOnly;
+  prodOnly.prod_only = true;
+  CHECK(!rules::wanted(prodOnly, items[1], AlertLevel::INFO), "staging filtered out with production only");
+  CHECK(rules::wanted(prodOnly, items[3], AlertLevel::CRITICAL), "items without an environment pass");
+
+  rules::Filter svc;
+  svc.services = " Checkout , billing";
+  CHECK(rules::wanted(svc, items[2], AlertLevel::INFO), "service list: trimmed, any case");
+  CHECK(!rules::wanted(svc, items[0], AlertLevel::CRITICAL), "service not in the list");
+  CHECK(rules::wanted(svc, items[3], AlertLevel::CRITICAL), "items without a service pass");
+
+  JsonDocument none;
+  deserializeJson(none, R"([{"type":"drift_detected","service":"payments","environment":"staging"}])");
+  CHECK(!rules::judge(crit, none.as<JsonArrayConst>(), level), "nothing passes: no alert");
+}
+
 int main() {
   setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);  // Goli's time zone (config.h)
   tzset();
   testCalendar();
   testText();
+  testRules();
   printf("%d checks, %d failed\n", checks, failures);
   return failures ? 1 : 0;
 }
