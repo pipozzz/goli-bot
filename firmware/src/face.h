@@ -41,12 +41,13 @@ class Face {
   // Night clock under his closed eyes while he sleeps ("23:41"); nullptr hides it.
   void setClock(const char *hhmm);
   // Focus mode: a ring around the screen that shrinks, and the minutes left; remaining_s < 0 hides it.
-  void setFocus(int remaining_s, int total_s);
+  void setFocus(int remaining_s, int total_s, uint32_t color = 0x6c7ae0);  // blue: focus, green: a break
   // A meeting coming up: amber ring, its name and "in 4:59"; title nullptr hides it
   void setMeeting(const char *title, int remaining_s, int total_s);
   void setAccessories(uint8_t mask);
   void setFatigue(float f) { fatigue_ = f; }  // 0 fresh .. 1 exhausted: how heavy his resting lids are
-  void glance(int dir, uint32_t ms);          // look hard to one side: -1 left, +1 right
+  void glance(int dir, uint32_t ms);          // look hard to one side: -1 left, +1 right, 2 up
+  void hop();                                 // a little jump of the whole face (an alert, good news)
   int unseen() const { return unseen_; }
 
  private:
@@ -81,7 +82,7 @@ class Face {
   uint8_t hat_kind_ = 0, accessories_ = 0;
   float fatigue_ = 0.f;
   int glance_dir_ = 0;
-  uint32_t glance_until_ = 0;
+  uint32_t glance_until_ = 0, hop_start_ = 0;
   void drawHat(uint8_t kind);
   int unseen_ = 0;
   AlertLevel level_ = AlertLevel::GOOD;

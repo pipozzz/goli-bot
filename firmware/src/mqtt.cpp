@@ -78,7 +78,8 @@ void discovery() {
     announce("sensor", s.id, s.name, d);
   }
   const Sensor binaries[] = {{"focus", "Focus", "{{ 'ON' if value_json.focus else 'OFF' }}", "mdi:timer-sand"},
-                             {"present", "Someone at the desk", "{{ 'ON' if value_json.present else 'OFF' }}", ""}};
+                             {"present", "Someone at the desk", "{{ 'ON' if value_json.present else 'OFF' }}", ""},
+                             {"meeting", "In a meeting", "{{ 'ON' if value_json.meeting else 'OFF' }}", "mdi:calendar-account"}};
   for (const Sensor &s : binaries) {
     JsonDocument d;
     d["stat_t"] = state;
@@ -110,6 +111,7 @@ void publishState(const bot::State &s) {
   d["focus"] = s.focus;
   d["present"] = s.present;
   d["asleep"] = s.asleep;
+  d["meeting"] = s.in_meeting;
   String out;
   serializeJson(d, out);
   client.publish((base + "/state").c_str(), out.c_str(), true);
@@ -177,7 +179,7 @@ void task(void *) {
     portEXIT_CRITICAL(&lock);
     const bool changed = have && (strcmp(now_state.mood, last.mood ? last.mood : "") || now_state.unseen != last.unseen ||
                          now_state.focus != last.focus || now_state.present != last.present ||
-                         now_state.today_alerts != last.today_alerts);
+                         now_state.today_alerts != last.today_alerts || now_state.in_meeting != last.in_meeting);
     if (have && (changed || millis() - last_pub > 60000)) {  // (`changed` reads mood only once `have`)
       publishState(now_state);
       last = now_state;

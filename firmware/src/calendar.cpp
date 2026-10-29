@@ -38,8 +38,10 @@ struct Event {
   char title[48];
   uint32_t uid;
   int64_t start;     // first occurrence, Unix seconds
+  int64_t end;       // DTEND of the first occurrence (0 if none)
+  int32_t duration;  // DURATION in seconds (0 if none)
   int64_t recurrence_id;
-  bool all_day, cancelled;
+  bool all_day, cancelled;  // cancelled: also free time (TRANSP:TRANSPARENT)
   // RRULE: daily and weekly are expanded; anything else counts as its first date only
   char freq;         // 0, 'D', 'W' or 'X'
   int interval, count;
@@ -145,7 +147,9 @@ void unescape(const char *in, char *out, size_t cap) {
 }
 
 void addOccurrence(const Event &e, int64_t start) {
-  if (start < win_from || start >= win_to) return;
+  const int64_t length = e.duration ? e.duration : (e.end > e.start ? e.end - e.start : 0);
+  if (start >= win_to || (start < win_from && start + length <= win_from)) return;  // ongoing ones count too
+  if (start < win_from && length > 8 * 3600) return;  // a multi-day block already on: don't let it take a slot
   for (int i = 0; i < e.ex_n; i++)
     if (e.exdates[i] == start) return;
   int at = building_n;  // keep the earliest kMax, sorted
@@ -154,6 +158,7 @@ void addOccurrence(const Event &e, int64_t start) {
   for (int i = std::min(building_n, kMax - 1); i > at; i--) building[i] = building[i - 1];
   snprintf(building[at].m.title, sizeof building[at].m.title, "%s", e.title);
   building[at].m.start = start;
+  building[at].m.end = start + length;
   building[at].uid = e.uid;
   if (building_n < kMax) building_n++;
 }
@@ -242,10 +247,24 @@ void property(Event &e, const String &line) {
   } else if (named(name, "DTSTART")) {
     e.start = parseTime(value.c_str(), param(name, "TZID=").c_str(), &date_only);
     e.all_day = date_only;
+  } else if (named(name, "DTEND")) {
+    e.end = parseTime(value.c_str(), param(name, "TZID=").c_str(), &date_only);
+  } else if (named(name, "DURATION")) {  // "PT1H30M", "PT45M", "P1DT2H"
+    int n = 0, sum = 0;
+    for (const char *p = value.c_str(); *p; p++) {
+      if (isdigit(*p)) n = n * 10 + (*p - '0');
+      else {
+        sum += *p == 'W' ? n * 604800 : *p == 'D' ? n * 86400 : *p == 'H' ? n * 3600 : *p == 'M' ? n * 60 : *p == 'S' ? n : 0;
+        n = 0;
+      }
+    }
+    e.duration = value.startsWith("-") ? 0 : sum;  // a negative length isn't one
   } else if (named(name, "RECURRENCE-ID")) {
     e.recurrence_id = parseTime(value.c_str(), param(name, "TZID=").c_str(), &date_only);
   } else if (named(name, "STATUS")) {
-    e.cancelled = value == "CANCELLED";
+    if (value == "CANCELLED") e.cancelled = true;
+  } else if (named(name, "TRANSP")) {
+    if (value == "TRANSPARENT") e.cancelled = true;  // marked as free: not a meeting
   } else if (named(name, "EXDATE")) {
     const String tz = param(name, "TZID=");
     for (int from = 0; from < int(value.length());) {

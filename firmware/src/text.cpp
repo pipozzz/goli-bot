@@ -85,6 +85,9 @@ const char *const kText[int(Txt::COUNT)][kLangCount] = {
     {"Goliash token? tap 5x", "Goliash token? 5x tukni", "Goliash token? 5x tukni", "Goliash-Token? 5x tippen"},  // BAD_TOKEN
     {"Goliash unreachable", "Goliash nedostupny", "Goliash nedostupny", "Goliash nicht erreichbar"},  // UNREACHABLE
     {"reminder", "pripomienka", "pripominka", "Erinnerung"},  // REMINDER
+    {"in a meeting", "na stretnuti", "na schuzce", "im Termin"},  // IN_MEETING
+    {"break %d:%02d", "pauza %d:%02d", "pauza %d:%02d", "Pause %d:%02d"},  // BREAK
+    {"back to it?", "spat do prace?", "zpet do prace?", "weiter geht's?"},  // BACK_TO_WORK
 };
 
 const char *const kDays[kLangCount][7] = {

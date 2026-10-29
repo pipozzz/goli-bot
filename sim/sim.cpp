@@ -62,6 +62,9 @@ bool talks() { return talk; }
 bool buddy() { return buddy_on; }
 int breakMin() { return break_min; }
 int focusMin() { return focus_min; }
+void weatherText(char *out, size_t cap) {
+  snprintf(out, cap, "%s", weather_mask & 2 ? "9 C, rain later" : weather_mask & 1 ? "24 C" : weather_mask & 4 ? "-3 C" : "14 C");
+}
 const char *birthday() {
   if (!bday) return nullptr;
   const time_t t = time(nullptr);
@@ -167,10 +170,11 @@ EMSCRIPTEN_KEEPALIVE int sim_sound_count() { return kSoundCount; }
 EMSCRIPTEN_KEEPALIVE const char *sim_sound_name(int i) { return kSoundNames[i].name; }
 EMSCRIPTEN_KEEPALIVE const char *sim_sound_label(int i) { return kSoundNames[i].label; }
 EMSCRIPTEN_KEEPALIVE void sim_talk(int on) { talk = on; }
-EMSCRIPTEN_KEEPALIVE void sim_meeting(const char *title, int in_s) {
+EMSCRIPTEN_KEEPALIVE void sim_meeting(const char *title, int in_s) {  // 30 minutes long; in_s < 0: already on
   bot::Meeting m;
   snprintf(m.title, sizeof m.title, "%s", title);
   m.start = int64_t(time(nullptr)) + in_s;
+  m.end = m.start + 1800;
   bot::meetings(&m, 1);
 }
 EMSCRIPTEN_KEEPALIVE void sim_weather(int mask) {
@@ -232,6 +236,7 @@ int main() {
   hooks.breakMin = breakMin;
   hooks.birthday = birthday;
   hooks.focusMin = focusMin;
+  hooks.weather = weatherText;
   bot::begin(lv_scr_act(), hooks, uint32_t(emscripten_get_now()));
   bot::meetings(nullptr, 0);
   emscripten_set_main_loop(frame, 0, false);

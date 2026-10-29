@@ -35,6 +35,8 @@ uint32_t last_tap = 0;
 uint32_t page_since = 0;   // when the current swipe page was opened or touched
 uint32_t focus_until = 0;  // focus mode end (0 = off)
 int focus_total_s = 0;     // its length, for the ring
+uint32_t break_until = 0;  // the break after a focus session (0 = none)
+int break_total_s = 0;
 
 // ---- mood sequencing
 uint32_t last_activity = 0;
@@ -48,11 +50,14 @@ Meeting meets[6];
 int meet_n = 0;
 uint8_t weather_mask = 0;
 uint32_t snooze_until = 0;      // knocked: alerts stay silent until then
+bool in_meeting = false;        // the calendar says you're in one: alerts stay silent
 char said[64] = "";             // a message under his mouth, until said_until
 uint32_t said_until = 0;
 
 // ---- his day
 int today_alerts = 0, today_critical = 0, today_good = 0, today_pets = 0, today_boops = 0, today_focus = 0;
+
+uint8_t today_hours[24] = {};  // alerts per hour, for the web page's chart
 
 // The latest alerts, for the Alerts page (newest first)
 struct Recent {
@@ -114,7 +119,16 @@ void wake(uint32_t now) {
   }
 }
 
-void toggleFocus(uint32_t now) {
+void toggleFocus(uint32_t now, bool tapped = true) {
+  if (break_until) {  // 3 taps during a break: skip the rest of it (a button elsewhere starts focus)
+    break_until = 0;
+    face.setFocus(-1, 0);
+    face.setBaseMood(Mood::TIRED);
+    if (tapped) {
+      sound::play(Sound::BOOP);
+      return;
+    }
+  }
   if (focus_until) {
     focus_until = 0;
     face.setFocus(-1, 0);
@@ -234,22 +248,46 @@ void tickSecond(uint32_t now) {
       face.setBaseMood(Mood::TIRED);
       wake(now);
       face.setMood(Mood::HAPPY, 3000);
-      sound::play(Sound::CHIRP);
+      sound::play(talks() ? Sound::YAY : Sound::CHIRP);
+      const int brk = hk.breakAfterFocus ? hk.breakAfterFocus() : 5;
+      if (brk > 0) {  // a pomodoro break: a green ring this time
+        break_total_s = brk * 60;
+        break_until = now + break_total_s * 1000UL;
+        present_since = now;  // the pomodoro break is the stretch break
+      }
     } else {
       face.setFocus(left, focus_total_s);
+    }
+  } else if (break_until) {
+    const int32_t left = int32_t(break_until - now) / 1000;
+    if (left <= 0) {  // break over
+      break_until = 0;
+      face.setFocus(-1, 0);
+      wake(now);
+      face.setMood(Mood::SURPRISED, 1200);
+      chime(talks() ? Sound::HM : Sound::DING, now);
+      say(tr(Txt::BACK_TO_WORK), 15000, now);
+    } else {
+      face.setFocus(left, break_total_s, 0x3fb27f);  // its countdown shows in the status line below
     }
   }
 
   if (!demo::active()) {  // the demo shows its own hint
+    const char *hint = hk.hint ? hk.hint() : nullptr;
+    char pause[24] = "";
+    if (break_until) {
+      const int32_t left = std::max<int32_t>(0, int32_t(break_until - now) / 1000);
+      snprintf(pause, sizeof pause, tr(Txt::BREAK), int(left / 60), int(left % 60));
+    }
     if (said_until && int32_t(said_until - now) > 0) face.showStatus(said);
-    else face.showStatus(hk.hint ? hk.hint() : nullptr);
+    else face.showStatus(hint ? hint : *pause ? pause : in_meeting ? tr(Txt::IN_MEETING) : nullptr);
   }
 
   const time_t t = time(nullptr);
   const bool clock_ok = t > 1700000000;
   struct tm lt;
   localtime_r(&t, &lt);
-  char hhmm[8], date[32];
+  char hhmm[8], date[80];
   strftime(hhmm, sizeof hhmm, "%H:%M", &lt);
   dateText(lt, date, sizeof date);
   face.setClock(clock_ok ? hhmm : nullptr);
@@ -262,6 +300,11 @@ void tickSecond(uint32_t now) {
       if (hk.overview) hk.overview(screens, now);
       break;
     case Screens::CLOCK:
+      if (clock_ok && hk.weather) {  // the weather under the date
+        char w[40];
+        hk.weather(w, sizeof w);
+        if (*w) snprintf(date + strlen(date), sizeof date - strlen(date), "\n%s", w);
+      }
       screens.setClock(clock_ok ? hhmm : "--:--", clock_ok ? date : tr(Txt::NO_TIME));
       break;
     case Screens::ALERTS: {
@@ -336,6 +379,7 @@ void daily(const struct tm &lt, uint32_t now) {
       if (hk.dayOver) hk.dayOver(today_alerts, today_critical);
       yesterday(today_alerts, today_critical);
       today_alerts = today_critical = today_good = today_pets = today_boops = today_focus = 0;
+      memset(today_hours, 0, sizeof today_hours);
     }
     day_of_year = lt.tm_yday;
     wear();
@@ -368,7 +412,7 @@ void daily(const struct tm &lt, uint32_t now) {
     say(tr(Txt::GO_HOME), 8000, now);
   }
   const int break_min = hk.breakMin ? hk.breakMin() : 50;
-  if (break_min > 0 && !focus_until && present_since && now - present_since > break_min * 60000UL) {
+  if (break_min > 0 && !focus_until && !break_until && present_since && now - present_since > break_min * 60000UL) {
     present_since = now;  // the next one in another break_min
     face.setMood(Mood::SURPRISED, 1200);
     chime(talks() ? Sound::HM : Sound::DROP, now);
@@ -378,36 +422,62 @@ void daily(const struct tm &lt, uint32_t now) {
 
 // The next meeting: an amber ring for the last MEETING_REMIND_MIN, a ding when it starts
 void updateMeeting(time_t t, uint32_t now) {
-  while (meet_n && meets[0].start + 60 < int64_t(t)) {  // started over a minute ago: drop it
-    for (int i = 1; i < meet_n; i++) meets[i - 1] = meets[i];
-    meet_n--;
+  // Over (and started over a minute ago): gone
+  for (int i = 0; i < meet_n;) {
+    if (std::max(meets[i].start + 60, meets[i].end) < int64_t(t)) {
+      for (int j = i + 1; j < meet_n; j++) meets[j - 1] = meets[j];
+      meet_n--;
+    } else {
+      i++;
+    }
   }
+  in_meeting = false;
+  for (int i = 0; i < meet_n; i++)  // a 4 h+ block (a conference, "focus time") is not a meeting to be quiet for
+    in_meeting |= meets[i].start <= int64_t(t) && int64_t(t) < meets[i].end && meets[i].end - meets[i].start <= 4 * 3600;
+  int next = 0;  // the next one to count down to (ongoing ones are skipped)
+  while (next < meet_n && meets[next].start + 60 < int64_t(t)) next++;
   static int64_t rang_for = 0;
-  if (!meet_n || t < 1700000000) {
+  if (next >= meet_n || t < 1700000000) {
     face.setMeeting(nullptr, 0, 0);
     return;
   }
-  const int64_t left = meets[0].start - int64_t(t);
+  const Meeting &m = meets[next];
+  const int64_t left = m.start - int64_t(t);
   if (left > MEETING_REMIND_MIN * 60) {
     face.setMeeting(nullptr, 0, 0);
     return;
   }
   if (left <= 0) {
-    if (rang_for != meets[0].start) {
-      rang_for = meets[0].start;
+    if (rang_for != m.start) {
+      rang_for = m.start;
       wake(now);
       face.setMood(Mood::SURPRISED, 1500);
       if (!snoozed(now)) sound::play(alertSound(AlertLevel::INFO));
-      say(meets[0].title, 20000, now);
+      say(m.title, 20000, now);
     }
     face.setMeeting(nullptr, 0, 0);
     return;
   }
   if (pairing_until && int32_t(pairing_until - now) > 0) return;  // the code keeps the line
-  face.setMeeting(meets[0].title, int(left), MEETING_REMIND_MIN * 60);
+  face.setMeeting(m.title, int(left), MEETING_REMIND_MIN * 60);
+}
+
+// Little things he does when nothing happens, every few minutes: so he never looks frozen
+void idleMoment(uint32_t now) {
+  static uint32_t next = 120000;
+  if (int32_t(now - next) < 0) return;
+  next = now + 90000 + uint32_t(rand() % 210000);
+  if (asleep || face.held() || focus_until || break_until || demo::active() || screens.page() != Screens::FACE) return;
+  switch (rand() % 4) {
+    case 0: face.glance(rand() % 2 ? 1 : -1, 1600); break;  // what was that?
+    case 1: face.glance(2, 1400); break;                      // what time is it?
+    case 2: face.setMood(Mood::DROWSY, 1400); break;          // a silent little yawn
+    default: face.blink(); break;
+  }
 }
 
 void updateIdle(uint32_t now) {
+  idleMoment(now);
   if (happy_after && int32_t(now - happy_after) >= 0) {
     happy_after = 0;
     face.setMood(Mood::HAPPY, 2200);
@@ -499,6 +569,8 @@ void motion(float ax, float ay, float az, uint32_t now) {
 void alert(const char *title, int count, AlertLevel level, bool quiet_hours, uint32_t now, bool prod_deploy) {
   if (demo::active()) return;
   today_alerts += count;
+  struct tm at;
+  if (localTime(at)) today_hours[at.tm_hour] = uint8_t(std::min(255, today_hours[at.tm_hour] + count));
   if (level == AlertLevel::CRITICAL) today_critical += count;
   if (level == AlertLevel::GOOD) today_good += count;
   face.showAlert(title, face.unseen() + count, level);
@@ -509,7 +581,7 @@ void alert(const char *title, int count, AlertLevel level, bool quiet_hours, uin
   if (recent_n < 5) recent_n++;
   if (hk.alerted) hk.alerted(level);
   if (quiet_hours || snoozed(now)) return;  // at night or snoozed: badge only
-  if (focus_until && level != AlertLevel::CRITICAL) return;  // focusing: only what's on fire
+  if ((focus_until || in_meeting) && level != AlertLevel::CRITICAL) return;  // focusing or in a meeting: only fires
   screens.show(Screens::FACE);
   wake(now);
   struct tm lt;
@@ -519,6 +591,7 @@ void alert(const char *title, int count, AlertLevel level, bool quiet_hours, uin
     say(tr(Txt::ON_A_FRIDAY), 8000, now);
     return;
   }
+  face.hop();
   switch (level) {
     case AlertLevel::CRITICAL:  // an agent went quiet, a vulnerability, prod drift...
       face.setMood(Mood::ALARMED, 4000);
@@ -598,7 +671,7 @@ void poke(uint32_t now) {
 
 void focus(uint32_t now) {
   wake(now);
-  toggleFocus(now);
+  toggleFocus(now, false);
 }
 
 void demo(uint32_t now) {
@@ -632,6 +705,8 @@ State state(uint32_t now) {
   st.focus = focus_until != 0;
   st.present = present_last && now - present_last < 3 * 60000UL;
   st.asleep = asleep;
+  st.in_meeting = in_meeting;
+  memcpy(st.hours, today_hours, sizeof st.hours);
   return st;
 }
 

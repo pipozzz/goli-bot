@@ -118,7 +118,7 @@
       <div class="panel">
         <h2>His day</h2>
         <div class="row"><input type="text" id="mtitle" value="stand-up" aria-label="Meeting title">
-          <button class="b" id="meeting">Meeting in 2 min</button></div>
+          <button class="b" id="meeting">Meeting in 2 min</button><button class="b" id="meetingNow">In a meeting now</button></div>
         <div class="row">
           <button class="b" data-wear="2" aria-pressed="false">Rain</button>
           <button class="b" data-wear="1" aria-pressed="false">Sunny</button>
@@ -233,6 +233,8 @@ function wire() {
 
   document.getElementById('meeting').onclick = () =>
     Module.ccall('sim_meeting', null, ['string', 'number'], [document.getElementById('mtitle').value || 'meeting', 120]);
+  document.getElementById('meetingNow').onclick = () =>
+    Module.ccall('sim_meeting', null, ['string', 'number'], [document.getElementById('mtitle').value || 'meeting', -60]);
   document.getElementById('yday').oninput = e => Module._sim_yesterday(+e.target.value);
   document.getElementById('knock').onclick = () => Module._sim_knock();
   document.getElementById('lang').onchange = e => Module.ccall('sim_lang', null, ['string'], [e.target.value]);

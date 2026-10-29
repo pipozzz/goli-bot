@@ -317,8 +317,8 @@ void Face::update(uint32_t now) {
     ty = random(-3, 4);
   }
   if (glance_until_ && int32_t(glance_until_ - now) > 0) {
-    tx = glance_dir_ * kLook;
-    ty = 2.f;
+    tx = glance_dir_ == 2 ? 0.f : glance_dir_ * kLook;
+    ty = glance_dir_ == 2 ? -kLook : 2.f;  // up: at the clock on the wall
   }
   look_x_ = ease(look_x_, constrain(tx, -kLook, kLook), dt, 45.f);
   look_y_ = ease(look_y_, constrain(ty, -kLook, kLook), dt, 45.f);
@@ -339,7 +339,25 @@ void Face::apply(uint32_t now) {
   // Slow drift of the whole face: keeps the AMOLED from burning in one static image
   const int drift_x = int(6.f * sinf(now / 37000.f));
   const int breath = mood_ == Mood::ASLEEP ? int(4.f * sinf(now / 900.f)) : 0;
-  lv_obj_set_pos(root_, drift_x, int(5.f * sinf(now / 53000.f)) + breath);
+  int hop = 0;
+  if (hop_start_ && now - hop_start_ < 520) {  // two bounces, the second smaller
+    const float t = (now - hop_start_) / 260.f;
+    hop = -int((t < 1.f ? 12.f : 5.f) * sinf(float(M_PI) * (t < 1.f ? t : t - 1.f)));
+  }
+  lv_obj_set_pos(root_, drift_x, int(5.f * sinf(now / 53000.f)) + breath + hop);
+  lv_obj_set_y(focus_arc_, 6 - hop);  // the ring stays by the glass's edge while he hops
+
+  // An unseen alert's badge breathes (faster when it's critical)
+  static int last_grow = -1;
+  if (unseen_) {
+    const int grow = int(3.f + 3.f * sinf(now / (level_ == AlertLevel::CRITICAL ? 110.f : 260.f)));
+    if (grow != last_grow) {  // only when it changes: each call redraws the badge
+      last_grow = grow;
+      lv_obj_set_size(badge_, 64 + 2 * grow, 64 + 2 * grow);
+      lv_obj_set_pos(badge_, kC - 32 - grow, 26 - grow);
+      lv_obj_center(badge_txt_);
+    }
+  }
 
   for (int i = 0; i < 2; i++) {
     Eye &e = eyes_[i];
@@ -486,6 +504,8 @@ void Face::setAccessories(uint8_t mask) {
   drawHat(mask & SANTA_HAT ? SANTA_HAT : mask & PARTY_HAT ? PARTY_HAT : 0);
 }
 
+void Face::hop() { hop_start_ = millis() | 1; }
+
 void Face::glance(int dir, uint32_t ms) {
   glance_dir_ = dir;
   glance_until_ = millis() + ms;
@@ -564,13 +584,14 @@ void Face::setClock(const char *hhmm) {
   if (hhmm && strcmp(lv_label_get_text(clock_), hhmm)) lv_label_set_text(clock_, hhmm);
 }
 
-void Face::setFocus(int remaining_s, int total_s) {
+void Face::setFocus(int remaining_s, int total_s, uint32_t color) {
   if (remaining_s < 0 || total_s <= 0) {
     lv_obj_add_flag(focus_arc_, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(focus_txt_, LV_OBJ_FLAG_HIDDEN);
     return;
   }
   lv_arc_set_value(focus_arc_, int16_t(1000L * remaining_s / total_s));
+  if (!meeting_on_) lv_obj_set_style_arc_color(focus_arc_, lv_color_hex(color), LV_PART_INDICATOR);
   lv_obj_set_y(focus_txt_, 392);
   lv_label_set_text_fmt(focus_txt_, "%d:%02d", remaining_s / 60, remaining_s % 60);
   lv_obj_clear_flag(focus_arc_, LV_OBJ_FLAG_HIDDEN);

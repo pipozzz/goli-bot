@@ -35,6 +35,8 @@ WebServer server(80);
 bool running = false;
 char host[16] = "";
 QueueHandle_t requests = xQueueCreate(8, sizeof(Request));
+bot::State shared_state = {};
+portMUX_TYPE state_lock = portMUX_INITIALIZER_UNLOCKED;
 
 // ---- pairing: the page asks, Goli shows a code, whoever reads it gets a session
 Preferences store;              // "goli-web": sessions survive restarts
@@ -316,6 +318,7 @@ void getConfig() {
   d["buddy"] = c.buddy;
   d["brk"] = c.break_min;
   d["focus"] = c.focus_min;
+  d["fbrk"] = c.focus_break;
   d["night"] = c.night_off;
   d["lang"] = c.lang;
   d["mqtt_host"] = c.mqtt_host;
@@ -384,6 +387,7 @@ void setConfig() {
   flag("buddy", s.buddy);
   num("brk", s.break_min, 0, 240);
   num("focus", s.focus_min, 1, 180);
+  num("fbrk", s.focus_break, 0, 60);
   flag("night", s.night_off);
   str("lang", s.lang);
   str("mqtt_host", s.mqtt_host);
@@ -420,6 +424,16 @@ void getState() {
   d["github"] = github::state();
   d["down"] = watch::down();
   d["mqtt"] = mqtt::status();
+  bot::State st;
+  portENTER_CRITICAL(&state_lock);
+  st = shared_state;
+  portEXIT_CRITICAL(&state_lock);
+  d["mood"] = st.mood ? st.mood : "";
+  d["unseen"] = st.unseen;
+  d["focus"] = st.focus;
+  d["meeting"] = st.in_meeting;
+  JsonArray hours = d["hours"].to<JsonArray>();
+  for (uint8_t h : st.hours) hours.add(h);
   bot::Meeting m[6];
   const int mn = calendar::upcoming(m, 6);
   JsonArray meetings = d["meetings"].to<JsonArray>();
@@ -619,6 +633,7 @@ void backup() {
   d["brk"] = c.break_min;
   d["bday"] = c.birthday;
   d["focus"] = c.focus_min;
+  d["fbrk"] = c.focus_break;
   d["night"] = c.night_off;
   d["lang"] = c.lang;
   d["mqtt_host"] = c.mqtt_host;
@@ -751,6 +766,12 @@ void begin() {
 }
 
 void request(Command cmd, int arg) { ask(cmd, arg); }
+
+void setState(const bot::State &s) {
+  portENTER_CRITICAL(&state_lock);
+  shared_state = s;
+  portEXIT_CRITICAL(&state_lock);
+}
 
 uint16_t *shot() { return shot_buf; }
 

@@ -38,6 +38,7 @@ struct Settings {
   bool buddy = true;        // good morning, stretch breaks, Friday
   int break_min = 50;       // minutes at the desk before a stretch break (0 = never)
   int focus_min = FOCUS_MIN;  // focus mode (3 taps)
+  int focus_break = 5;      // minutes of break after it (0 = none)
   bool night_off = false;   // screen off while he sleeps in quiet hours
   String lang = "en";      // Goli's words on the screen: en, sk, cs, de
 

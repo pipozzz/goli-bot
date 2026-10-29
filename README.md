@@ -85,12 +85,15 @@ GFX Library for Arduino, SensorLib for touch and IMU, Espressif's ES8311 codec d
 | good news (an agent is back, a drift was resolved) | chirp, happy face, green badge |
 | tap the face | boop: surprised, then happy with blushing cheeks; also marks alerts as seen |
 | 2 quick taps | wink |
-| 3 quick taps | focus mode (a pomodoro) on / off: 25 minutes by default (set it on the web page), a ring counts down, only critical alerts ring; happy when it's over |
+| 3 quick taps | focus mode (a pomodoro) on / off: 25 minutes by default, a blue ring counts down, only critical alerts ring; happy when it's over, then a 5-minute break with a green ring and "back to it?" (both lengths on the web page; 3 taps skip a break) |
 | 5 quick taps | setup mode (QR code on the screen) |
 | 10 quick taps | demo mode for a booth (any tap stops it) |
 | swipe across the face | latest alerts → Goliash overview → today's meetings → big clock → Goli's day → status |
 | knock twice on the desk | snooze: alerts stay silent for 10 minutes |
 | a meeting in 10 minutes | an amber ring counts down, its name under his mouth; a ding when it starts |
+| during a meeting | alerts stay silent (badge only, critical ones still ring), "in a meeting" under his mouth |
+| an alert arrives | he hops, and the badge breathes until you've seen it (faster when critical) |
+| nothing happens for a while | every few minutes a glance around, a look at the clock, a silent yawn |
 | rain / sun / frost coming | umbrella / sunglasses / scarf |
 | your birthday, December | party hat, Santa hat |
 | a Goli next to him rings | he looks that way |
@@ -272,7 +275,7 @@ The first time, click *Show me a code*: Goli shows a 6-digit code on his face, a
 browser (5 wrong tries and the code is gone, and every further round makes you wait twice as long). Only someone standing next to Goli can pair. From then on
 everything is there:
 
-- **Home:** connections, **his face live** (a snapshot every 2 seconds), **reminders**, today's meetings, the
+- **Home:** connections, his mood, **alerts today by hour** (a small chart), **his face live** (a snapshot every 2 seconds), **reminders**, today's meetings, the
   latest alerts; boop him, start focus or the demo, test alerts.
 - **Sounds:** a sound per kind of alert with a play button, Goli talks, volume, quiet hours, your own sound.
 - **Alerts:** Goliash (optional), which alerts ring, GitHub, URLs to keep an eye on, the key for scripts.

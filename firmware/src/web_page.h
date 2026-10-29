@@ -65,6 +65,7 @@ code{background:var(--bg);padding:1px 5px;border-radius:5px;word-break:break-all
 <div class="bar"><button class="b ghost" onclick="testAlert('info')">Something new</button>
 <button class="b ghost" onclick="testAlert('critical')">Critical</button><button class="b ghost" onclick="testAlert('good')">Good news</button></div></div>
 <div class="card"><h2>Today's meetings</h2><div class="log" id="meetings"></div></div>
+<div class="card"><h2>Alerts today, by hour</h2><svg id="hours" viewBox="0 0 240 60" style="width:100%;height:70px"></svg></div>
 <div class="card"><h2>Latest alerts</h2><div class="log" id="log"></div></div>
 </section>
 
@@ -116,7 +117,7 @@ code{background:var(--bg);padding:1px 5px;border-radius:5px;word-break:break-all
 <div class="card"><h2>Desk buddy</h2>
 <label class="check"><input type="checkbox" data-k="buddy">Good morning, stretch breaks and "it's Friday"</label>
 <label>Stretch break after (minutes at the desk, 0 = never)<input type="number" min="0" max="240" data-k="brk"></label>
-<label>Focus mode lasts (minutes; 3 taps on his face)<input type="number" min="1" max="180" data-k="focus"></label>
+<div class="row"><label>Focus lasts (min; 3 taps)<input type="number" min="1" max="180" data-k="focus"></label><label>then a break of (min, 0 = none)<input type="number" min="0" max="60" data-k="fbrk"></label></div>
 <label>Your birthday (MM-DD)<input data-k="bday" placeholder="05-17" maxlength="5"><small>A party hat, and a "happy birthday" in the morning.</small></label>
 <label class="check"><input type="checkbox" data-k="mic">Listen for claps and noise (loudness only, nothing is recorded or sent)</label></div>
 <div class="card"><h2>Team</h2><p class="sub">Golis next to this one look its way when it rings.</p>
@@ -171,11 +172,15 @@ function fill(){for(const el of $$('[data-k]')){const k=el.dataset.k,v=cfg[k];
 let state={};
 function ago(t){if(!t)return'';const d=new Date(t*1000);return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}
 async function refresh(){try{state=await api('/api/state')}catch(e){return}
- const kv={IP:state.ip,'Wi-Fi':state.rssi+' dBm',Goliash:state.goliash,Calendar:state.calendar,Weather:state.weather||'off',GitHub:state.github,'Home Assistant':state.mqtt,'Sites down':state.down,'Up for':Math.round(state.uptime_s/60)+' min'};
+ drawHours(state.hours||[]);
+ const kv={Mood:state.mood+(state.focus?' (focus)':'')+(state.meeting?' (in a meeting)':''),IP:state.ip,'Wi-Fi':state.rssi+' dBm',Goliash:state.goliash,Calendar:state.calendar,Weather:state.weather||'off',GitHub:state.github,'Home Assistant':state.mqtt,'Sites down':state.down,'Up for':Math.round(state.uptime_s/60)+' min'};
  $('#state').innerHTML=Object.entries(kv).map(([k,v])=>`<b>${k}</b><span>${v}</span>`).join('');
  const col={critical:'var(--red)',good:'var(--green)',info:'var(--accent)'};
  $('#log').innerHTML=state.log.length?state.log.map(l=>`<div><span class="dot" style="background:${col[l.level]}"></span><span>${ago(l.at)} ${esc(l.title)}</span></div>`).join(''):'<div>Nothing yet.</div>';
  $('#meetings').innerHTML=state.meetings.length?state.meetings.map(m=>`<div><span>${ago(m.start)} ${esc(m.title)}</span></div>`).join(''):'<div>Nothing more today.</div>'}
+function drawHours(h){const max=Math.max(1,...h),now=new Date().getHours();
+ $('#hours').innerHTML=h.map((v,i)=>`<rect x="${i*10+1}" y="${48-v/max*44}" width="8" height="${Math.max(v?2:0,v/max*44)}" rx="2" fill="${i==now?'var(--accent)':'var(--muted)'}"><title>${i}:00 ${v}</title></rect>`).join('')+
+ [0,6,12,18].map(i=>`<text x="${i*10+1}" y="59" font-size="8" fill="var(--muted)">${i}</text>`).join('')}
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 async function save(){const b={};for(const el of $$('[data-k]')){const k=el.dataset.k;
  if(secrets.includes(k)){if(el.value)b[k]=el.value=='-'?'':el.value;continue}

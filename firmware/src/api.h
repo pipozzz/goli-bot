@@ -2,6 +2,8 @@
 
 #include <stdint.h>
 
+#include "bot.h"
+
 // Goli's local API on your network (normal mode), at http://goli-xxxx.local/ or his IP:
 //   POST /notify   ring him from anything: JSON {"title": "...", "level": "info|critical|good"},
 //                  with "Authorization: Bearer <key>" (the key is on the setup page), or a Goliash
@@ -19,6 +21,7 @@ struct Request {
 };
 bool take(Request &out);  // from the main loop
 void request(Command cmd, int arg = 0);  // from any task (MQTT commands too)
+void setState(const bot::State &s);      // from the main loop: what the web page shows about him
 
 // The live face on the web page: on SNAPSHOT the main loop draws the screen at half size
 // (233 x 233, RGB565) into shot() and calls shotDone()

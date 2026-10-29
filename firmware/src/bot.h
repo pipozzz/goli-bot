@@ -30,12 +30,15 @@ struct Hooks {
   void (*dayOver)(int alerts, int critical) = nullptr;  // at midnight: remember today for tomorrow's mood
   bool (*quietHours)() = nullptr;                    // night: no sounds from the desk buddy either
   int (*focusMin)() = nullptr;                       // how long focus mode lasts (nullptr: FOCUS_MIN)
+  int (*breakAfterFocus)() = nullptr;                // minutes of break after a focus session (0 = none)
+  void (*weather)(char *out, size_t cap) = nullptr;  // "11 C, rain later" for the clock page
   bool (*nightOff)() = nullptr;                      // screen fully off while he sleeps in quiet hours
 };
 
 struct Meeting {
   char title[48];
   int64_t start;  // Unix seconds
+  int64_t end;    // = start when the calendar gives no length
 };
 
 void begin(lv_obj_t *screen, const Hooks &hooks, uint32_t now);
@@ -69,7 +72,8 @@ void pairCode(int code, uint32_t now);  // show a pairing code (0 hides it)
 struct State {
   const char *mood;
   int unseen, today_alerts;
-  bool focus, present, asleep;
+  bool focus, present, asleep, in_meeting;
+  uint8_t hours[24];  // alerts per hour today
 };
 State state(uint32_t now);
 

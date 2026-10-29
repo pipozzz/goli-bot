@@ -74,6 +74,7 @@ void load() {
   s.buddy = prefs.getBool("buddy", true);
   s.break_min = prefs.getInt("brk", 50);
   s.focus_min = prefs.getInt("focus", FOCUS_MIN);
+  s.focus_break = prefs.getInt("fbrk", 5);
   s.night_off = prefs.getBool("night", false);
   s.lang = prefs.getString("lang", "en");
   s.mqtt_host = prefs.getString("mqh");
@@ -118,6 +119,7 @@ void save() {
   prefs.putInt("brk", s.break_min);
   prefs.putString("bday", s.birthday);
   prefs.putInt("focus", s.focus_min);
+  prefs.putInt("fbrk", s.focus_break);
   prefs.putBool("night", s.night_off);
   prefs.putString("lang", s.lang);
   prefs.putString("mqh", s.mqtt_host);
