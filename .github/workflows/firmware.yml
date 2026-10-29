@@ -39,6 +39,11 @@ jobs:
         run: pio run -e goli -d firmware
       - name: Host tests (calendar reader, alert rules, translations)
         run: firmware/test/run.sh
+      - name: Behaviour tests (a day with Goli, fake time)
+        working-directory: firmware
+        run: |
+          pio run -e behaviour
+          .pio/build/behaviour/program
       - name: Render the faces (host build)
         working-directory: firmware
         run: |

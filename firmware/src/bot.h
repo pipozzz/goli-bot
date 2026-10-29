@@ -3,6 +3,7 @@
 #include <lvgl.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <time.h>
 
 #include "face.h"
 #include "screens.h"
@@ -42,6 +43,7 @@ struct Meeting {
 };
 
 void begin(lv_obj_t *screen, const Hooks &hooks, uint32_t now);
+time_t wallClock();  // Unix time; time(nullptr) unless a test replaces it (weak)
 void update(uint32_t now);  // every loop
 
 void touch(int x, int y, uint32_t now);  // a touch sample while a finger is on the glass (panel pixels)

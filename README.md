@@ -193,6 +193,11 @@ VALARM, free time, folded lines, COUNT/UNTIL), what rings and how loud (Goliash 
 Alertmanager, Grafana and Uptime Kuma webhooks), and every translation's format string. It needs
 ArduinoJson from one firmware build.
 
+`pio run -e behaviour && .pio/build/behaviour/program` (in `firmware/`) runs Goli's behaviour (`bot.cpp`)
+through a day with fake time and records what he plays: taps and the wink, alerts and the badge, quiet
+hours, focus with its break, the kitchen timer through quiet, meetings, the knock-knock snooze, setup and
+demo taps, falling asleep, and the morning greeting once a day.
+
 ### Simulator
 
 **<https://pipozzz.github.io/goli-bot/sim/>** runs Goli's firmware in the browser: `bot.cpp` (every

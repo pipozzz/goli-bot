@@ -97,7 +97,7 @@ void chime(Sound s, uint32_t now) {
 }
 
 bool localTime(struct tm &lt) {
-  const time_t t = time(nullptr);
+  const time_t t = wallClock();
   localtime_r(&t, &lt);
   return t > 1700000000;
 }
@@ -303,7 +303,7 @@ void tickSecond(uint32_t now) {
     else face.showStatus(hint ? hint : *pause ? pause : in_meeting ? tr(Txt::IN_MEETING) : quiet_on ? tr(Txt::QUIET) : nullptr);
   }
 
-  const time_t t = time(nullptr);
+  const time_t t = wallClock();
   const bool clock_ok = t > 1700000000;
   struct tm lt;
   localtime_r(&t, &lt);
@@ -534,6 +534,8 @@ void updateIdle(uint32_t now) {
 
 }  // namespace
 
+__attribute__((weak)) time_t wallClock() { return time(nullptr); }
+
 void begin(lv_obj_t *screen, const Hooks &hooks, uint32_t now) {
   hk = hooks;
   face.begin(screen);
@@ -597,7 +599,7 @@ void alert(const char *title, int count, AlertLevel level, bool quiet_hours, uin
   for (int i = std::min(recent_n, 4); i > 0; i--) recent[i] = recent[i - 1];
   snprintf(recent[0].title, sizeof recent[0].title, "%s", title);
   recent[0].level = level;
-  recent[0].at = time(nullptr);
+  recent[0].at = wallClock();
   if (recent_n < 5) recent_n++;
   if (hk.alerted) hk.alerted(level);
   if (quiet_hours || snoozed(now)) return;  // at night or snoozed: badge only
