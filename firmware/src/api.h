@@ -14,7 +14,7 @@
 namespace api {
 
 // What the web page asks for that has to happen on the main loop (screen, sound volume, I2C)
-enum class Command : uint8_t { POKE, FOCUS, DEMO, VOLUME, PAIR_CODE, SETUP, SNAPSHOT };
+enum class Command : uint8_t { POKE, FOCUS, DEMO, VOLUME, PAIR_CODE, SETUP, SNAPSHOT, TIMER, QUIET };
 struct Request {
   Command cmd;
   int arg;

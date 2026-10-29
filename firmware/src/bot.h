@@ -67,12 +67,15 @@ void poke(uint32_t now);            // like a tap
 void focus(uint32_t now);           // focus mode on / off
 void demo(uint32_t now);            // demo loop on / off
 void pairCode(int code, uint32_t now);  // show a pairing code (0 hides it)
+void timer(int minutes, uint32_t now);  // a kitchen timer: an orange ring, a ding at the end (0 cancels)
+void quiet(bool on);                    // alerts badge-only until turned off
 
 // What he's up to, for Home Assistant
 struct State {
   const char *mood;
   int unseen, today_alerts;
-  bool focus, present, asleep, in_meeting;
+  bool focus, present, asleep, in_meeting, quiet;
+  int timer_s;        // seconds left on the timer (0 = none)
   uint8_t hours[24];  // alerts per hour today
 };
 State state(uint32_t now);

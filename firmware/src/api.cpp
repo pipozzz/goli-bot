@@ -432,6 +432,8 @@ void getState() {
   d["unseen"] = st.unseen;
   d["focus"] = st.focus;
   d["meeting"] = st.in_meeting;
+  d["quiet"] = st.quiet;
+  d["timer_s"] = st.timer_s;
   JsonArray hours = d["hours"].to<JsonArray>();
   for (uint8_t h : st.hours) hours.add(h);
   bot::Meeting m[6];
@@ -484,6 +486,8 @@ void action() {
   else if (!strcmp(what, "focus")) ask(Command::FOCUS);
   else if (!strcmp(what, "demo")) ask(Command::DEMO);
   else if (!strcmp(what, "setup")) ask(Command::SETUP);
+  else if (!strcmp(what, "timer")) ask(Command::TIMER, constrain(in["minutes"] | 0, 0, 600));
+  else if (!strcmp(what, "quiet")) ask(Command::QUIET, (in["on"] | false) ? 1 : 0);
   else if (!strcmp(what, "restart")) {
     reply(200, "restarting");
     delay(300);

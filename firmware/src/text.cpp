@@ -88,6 +88,9 @@ const char *const kText[int(Txt::COUNT)][kLangCount] = {
     {"in a meeting", "na stretnuti", "na schuzce", "im Termin"},  // IN_MEETING
     {"break %d:%02d", "pauza %d:%02d", "pauza %d:%02d", "Pause %d:%02d"},  // BREAK
     {"back to it?", "spat do prace?", "zpet do prace?", "weiter geht's?"},  // BACK_TO_WORK
+    {"timer %d:%02d", "minutka %d:%02d", "minutka %d:%02d", "Timer %d:%02d"},  // TIMER
+    {"time's up!", "cas vyprsal!", "cas vyprsel!", "Zeit ist um!"},  // TIMES_UP
+    {"quiet", "ticho", "ticho", "Ruhe"},  // QUIET
 };
 
 const char *const kDays[kLangCount][7] = {

@@ -33,6 +33,10 @@ void received(char *topic, uint8_t *payload, unsigned int len) {
     if (body == "poke") api::request(api::Command::POKE);
     else if (body == "focus") api::request(api::Command::FOCUS);
     else if (body == "demo") api::request(api::Command::DEMO);
+  } else if (t == base + "/timer") {  // minutes (0 cancels)
+    api::request(api::Command::TIMER, constrain(int(body.toInt()), 0, 600));
+  } else if (t == base + "/quiet") {   // ON / OFF
+    api::request(api::Command::QUIET, body == "ON" ? 1 : 0);
   } else if (t == base + "/say") {  // Home Assistant's notify entity: the message, as plain text
     if (body.length()) goliash::pushAlert(body.c_str(), AlertLevel::INFO);
   } else if (t == base + "/notify") {  // {"title": "...", "level": "info|critical|good"}
@@ -101,6 +105,22 @@ void discovery() {
   JsonDocument n;
   n["cmd_t"] = base + "/say";
   announce("notify", "say", "Ring Goli", n);
+  JsonDocument t;  // a kitchen timer, in minutes
+  t["cmd_t"] = base + "/timer";
+  t["stat_t"] = state;
+  t["val_tpl"] = "{{ (value_json.timer_s / 60) | round(0, 'ceil') | int }}";
+  t["min"] = 0;
+  t["max"] = 120;
+  t["unit_of_meas"] = "min";
+  t["ic"] = "mdi:timer-outline";
+  t["mode"] = "box";
+  announce("number", "timer", "Timer", t);
+  JsonDocument q;
+  q["cmd_t"] = base + "/quiet";
+  q["stat_t"] = state;
+  q["val_tpl"] = "{{ 'ON' if value_json.quiet else 'OFF' }}";
+  q["ic"] = "mdi:bell-sleep";
+  announce("switch", "quiet", "Quiet", q);
 }
 
 void publishState(const bot::State &s) {
@@ -112,6 +132,8 @@ void publishState(const bot::State &s) {
   d["present"] = s.present;
   d["asleep"] = s.asleep;
   d["meeting"] = s.in_meeting;
+  d["quiet"] = s.quiet;
+  d["timer_s"] = s.timer_s;
   String out;
   serializeJson(d, out);
   client.publish((base + "/state").c_str(), out.c_str(), true);
@@ -168,6 +190,8 @@ void task(void *) {
       client.subscribe((base + "/cmd").c_str());
       client.subscribe((base + "/say").c_str());
       client.subscribe((base + "/notify").c_str());
+      client.subscribe((base + "/timer").c_str());
+      client.subscribe((base + "/quiet").c_str());
       last_pub = 0;
     }
     client.loop();
@@ -179,7 +203,8 @@ void task(void *) {
     portEXIT_CRITICAL(&lock);
     const bool changed = have && (strcmp(now_state.mood, last.mood ? last.mood : "") || now_state.unseen != last.unseen ||
                          now_state.focus != last.focus || now_state.present != last.present ||
-                         now_state.today_alerts != last.today_alerts || now_state.in_meeting != last.in_meeting);
+                         now_state.today_alerts != last.today_alerts || now_state.in_meeting != last.in_meeting ||
+                                  now_state.quiet != last.quiet || (now_state.timer_s / 60) != (last.timer_s / 60));
     if (have && (changed || millis() - last_pub > 60000)) {  // (`changed` reads mood only once `have`)
       publishState(now_state);
       last = now_state;

@@ -51,6 +51,9 @@ int meet_n = 0;
 uint8_t weather_mask = 0;
 uint32_t snooze_until = 0;      // knocked: alerts stay silent until then
 bool in_meeting = false;        // the calendar says you're in one: alerts stay silent
+bool quiet_on = false;          // "quiet" from the web page or Home Assistant
+uint32_t timer_until = 0;       // the kitchen timer (0 = none)
+int timer_total_s = 0;
 char said[64] = "";             // a message under his mouth, until said_until
 uint32_t said_until = 0;
 
@@ -85,7 +88,7 @@ void daily(const struct tm &lt, uint32_t now);
 void updateMeeting(time_t t, uint32_t now);
 void wear();
 
-bool snoozed(uint32_t now) { return snooze_until && int32_t(snooze_until - now) > 0; }
+bool snoozed(uint32_t now) { return quiet_on || (snooze_until && int32_t(snooze_until - now) > 0); }
 uint32_t pairing_until = 0;  // a pairing code is on his face: nothing else takes its line
 
 // The desk buddy speaks up only when sounds are welcome
@@ -258,7 +261,21 @@ void tickSecond(uint32_t now) {
     } else {
       face.setFocus(left, focus_total_s);
     }
-  } else if (break_until) {
+  }
+  if (timer_until) {  // the kitchen timer's orange ring wins over focus and breaks (a meeting wins over it)
+    const int32_t left = int32_t(timer_until - now) / 1000;
+    if (left <= 0) {
+      timer_until = 0;
+      face.setFocus(-1, 0);
+      wake(now);
+      face.setMood(Mood::SURPRISED, 2000);
+      face.hop();
+      sound::play(alertSound(AlertLevel::INFO));  // you set it: rings even when quiet
+      say(tr(Txt::TIMES_UP), 15000, now);
+    } else {
+      face.setFocus(left, timer_total_s, 0xff8c42);
+    }
+  } else if (break_until && !focus_until) {
     const int32_t left = int32_t(break_until - now) / 1000;
     if (left <= 0) {  // break over
       break_until = 0;
@@ -275,12 +292,15 @@ void tickSecond(uint32_t now) {
   if (!demo::active()) {  // the demo shows its own hint
     const char *hint = hk.hint ? hk.hint() : nullptr;
     char pause[24] = "";
-    if (break_until) {
+    if (timer_until) {
+      const int32_t left = std::max<int32_t>(0, int32_t(timer_until - now) / 1000);
+      snprintf(pause, sizeof pause, tr(Txt::TIMER), int(left / 60), int(left % 60));
+    } else if (break_until) {
       const int32_t left = std::max<int32_t>(0, int32_t(break_until - now) / 1000);
       snprintf(pause, sizeof pause, tr(Txt::BREAK), int(left / 60), int(left % 60));
     }
     if (said_until && int32_t(said_until - now) > 0) face.showStatus(said);
-    else face.showStatus(hint ? hint : *pause ? pause : in_meeting ? tr(Txt::IN_MEETING) : nullptr);
+    else face.showStatus(hint ? hint : *pause ? pause : in_meeting ? tr(Txt::IN_MEETING) : quiet_on ? tr(Txt::QUIET) : nullptr);
   }
 
   const time_t t = time(nullptr);
@@ -706,9 +726,26 @@ State state(uint32_t now) {
   st.present = present_last && now - present_last < 3 * 60000UL;
   st.asleep = asleep;
   st.in_meeting = in_meeting;
+  st.quiet = quiet_on;
+  st.timer_s = timer_until ? std::max<int32_t>(0, int32_t(timer_until - now) / 1000) : 0;
   memcpy(st.hours, today_hours, sizeof st.hours);
   return st;
 }
+
+void timer(int minutes, uint32_t now) {
+  wake(now);
+  if (minutes <= 0) {
+    timer_until = 0;
+    face.setFocus(-1, 0);
+    return;
+  }
+  timer_total_s = minutes * 60;
+  timer_until = now + timer_total_s * 1000UL;
+  face.setFocus(timer_total_s, timer_total_s, 0xff8c42);
+  sound::play(Sound::BOOP);
+}
+
+void quiet(bool on) { quiet_on = on; }
 
 void loud(bool on) {
   // Wince while it's loud, but never over an alert's face or anything else that is showing

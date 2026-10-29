@@ -53,6 +53,11 @@ code{background:var(--bg);padding:1px 5px;border-radius:5px;word-break:break-all
 <div class="card"><h2>Right now</h2><div class="kv" id="state"></div></div>
 <div class="card"><h2>His face</h2><canvas id="live" width="233" height="233" style="width:180px;height:180px;border-radius:50%;background:#000;display:block;margin:0 auto 10px"></canvas>
 <div class="bar" style="justify-content:center"><button class="b ghost" id="liveBtn" onclick="toggleLive()">Watch live</button></div></div>
+<div class="card"><h2>Timer and quiet</h2><div class="bar">
+<button class="b ghost" onclick="timer(3)">3 min</button><button class="b ghost" onclick="timer(5)">5 min</button>
+<button class="b ghost" onclick="timer(10)">10 min</button><button class="b ghost" onclick="timer(+prompt('Minutes?','15')||0)">...</button>
+<button class="b ghost" onclick="timer(0)">Cancel</button></div>
+<label class="check" style="margin-top:10px"><input type="checkbox" id="quiet" onchange="act('quiet',{on:this.checked})">Quiet: alerts only as a badge until I turn this off</label></div>
 <div class="card"><h2>Reminders</h2><div class="log" id="reminders"></div>
 <div class="row" style="margin-top:8px"><label style="flex:.6">At<input type="time" id="r_time" value="14:00"></label>
 <label style="flex:.8">Repeat<select id="r_repeat"><option value="once">once</option><option value="daily">every day</option><option value="weekdays">weekdays</option></select></label></div>
@@ -172,8 +177,8 @@ function fill(){for(const el of $$('[data-k]')){const k=el.dataset.k,v=cfg[k];
 let state={};
 function ago(t){if(!t)return'';const d=new Date(t*1000);return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}
 async function refresh(){try{state=await api('/api/state')}catch(e){return}
- drawHours(state.hours||[]);
- const kv={Mood:state.mood+(state.focus?' (focus)':'')+(state.meeting?' (in a meeting)':''),IP:state.ip,'Wi-Fi':state.rssi+' dBm',Goliash:state.goliash,Calendar:state.calendar,Weather:state.weather||'off',GitHub:state.github,'Home Assistant':state.mqtt,'Sites down':state.down,'Up for':Math.round(state.uptime_s/60)+' min'};
+ drawHours(state.hours||[]);if(document.activeElement!==$('#quiet'))$('#quiet').checked=!!state.quiet;
+ const kv={Mood:state.mood+(state.focus?' (focus)':'')+(state.meeting?' (in a meeting)':'')+(state.quiet?' (quiet)':'')+(state.timer_s?` (timer ${Math.ceil(state.timer_s/60)} min)`:''),IP:state.ip,'Wi-Fi':state.rssi+' dBm',Goliash:state.goliash,Calendar:state.calendar,Weather:state.weather||'off',GitHub:state.github,'Home Assistant':state.mqtt,'Sites down':state.down,'Up for':Math.round(state.uptime_s/60)+' min'};
  $('#state').innerHTML=Object.entries(kv).map(([k,v])=>`<b>${k}</b><span>${v}</span>`).join('');
  const col={critical:'var(--red)',good:'var(--green)',info:'var(--accent)'};
  $('#log').innerHTML=state.log.length?state.log.map(l=>`<div><span class="dot" style="background:${col[l.level]}"></span><span>${ago(l.at)} ${esc(l.title)}</span></div>`).join(''):'<div>Nothing yet.</div>';
@@ -187,7 +192,8 @@ async function save(){const b={};for(const el of $$('[data-k]')){const k=el.data
  b[k]=el.type=='checkbox'?el.checked:(el.type=='number'||el.type=='range'||k=='minlvl')?+el.value:el.value}
  if($('#newkey').checked)b.newkey=true;
  try{const r=await api('/api/config',b);toast(r.restart?'Saved. Restart Goli for the new Wi-Fi or Goliash.':'Saved');$('#newkey').checked=false;cfg=await api('/api/config');fill()}catch(e){toast('Not saved: '+e)}}
-async function act(what){try{await api('/api/do',{do:what});toast('OK')}catch(e){toast(''+e)}}
+async function act(what,extra){try{await api('/api/do',Object.assign({do:what},extra||{}));toast('OK')}catch(e){toast(''+e)}}
+function timer(m){if(m>=0)act('timer',{minutes:m})}
 async function testAlert(level){try{await api('/api/test',{level,title:$('#t_title').value});setTimeout(refresh,800)}catch(e){toast(''+e)}}
 async function play(k){try{await api('/api/play',{sound:$(`[data-k=${k}]`).value})}catch(e){}}
 function locate(){navigator.geolocation.getCurrentPosition(p=>{$('[data-k=lat]').value=p.coords.latitude.toFixed(3);$('[data-k=lon]').value=p.coords.longitude.toFixed(3)},()=>toast('No location'))}

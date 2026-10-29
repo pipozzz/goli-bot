@@ -155,6 +155,12 @@ Turn it off on the web page.
 Tap him 10 times: he loops through his faces and a few made-up Goliash alerts (a deploy, a critical
 drift, an agent coming back) with sounds, no Wi-Fi needed. Any tap stops it. Made for a booth.
 
+### Tests
+
+`firmware/test/run.sh` runs host tests without a board (CI runs them too): the calendar reader against
+real-world iCalendar cases (time zones, weekly and daily repeats, EXDATE, moved and cancelled instances,
+VALARM, free time, folded lines, COUNT/UNTIL) and every translation's format string.
+
 ### Simulator
 
 **<https://pipozzz.github.io/goli-bot/sim/>** runs Goli's firmware in the browser: `bot.cpp` (every
@@ -193,6 +199,11 @@ Builds you make yourself are versioned `dev` and never update themselves.
 
 Safari and phones can't flash (no Web Serial). Every release also has `goli-firmware.bin`, a merged image for
 offset 0x0: `esptool.py --chip esp32s3 write_flash 0x0 goli-firmware.bin`.
+
+### First time on a new board
+
+The firmware hasn't met real hardware yet: **[docs/bring-up.md](docs/bring-up.md)** is the order to check
+the display, touch, IMU, sound, microphones and battery, and what to change when something is off.
 
 ### Checking the assembly
 
@@ -275,7 +286,8 @@ The first time, click *Show me a code*: Goli shows a 6-digit code on his face, a
 browser (5 wrong tries and the code is gone, and every further round makes you wait twice as long). Only someone standing next to Goli can pair. From then on
 everything is there:
 
-- **Home:** connections, his mood, **alerts today by hour** (a small chart), **his face live** (a snapshot every 2 seconds), **reminders**, today's meetings, the
+- **Home:** connections, his mood, a **kitchen timer** (orange ring, a ding at the end) and a **quiet**
+  switch, **alerts today by hour** (a small chart), **his face live** (a snapshot every 2 seconds), **reminders**, today's meetings, the
   latest alerts; boop him, start focus or the demo, test alerts.
 - **Sounds:** a sound per kind of alert with a play button, Goli talks, volume, quiet hours, your own sound.
 - **Alerts:** Goliash (optional), which alerts ring, GitHub, URLs to keep an eye on, the key for scripts.
@@ -335,6 +347,9 @@ himself with MQTT discovery and shows up as a device:
 | Unseen alerts, Mood, Alerts today | sensors |
 | Focus, Someone at the desk | binary sensors (an occupancy sensor for automations) |
 | Boop, Focus on/off, Demo on/off | buttons |
+| Timer | a number (minutes): a kitchen timer with an orange ring |
+| Quiet | a switch: alerts only as a badge until it's off |
+| In a meeting | a binary sensor from the calendar |
 | Ring Goli | a notify entity: `notify.send_message` with a message rings him |
 
 For a level, publish `{"title": "Washing machine done", "level": "good"}` to `goli/goli-xxxx/notify`.

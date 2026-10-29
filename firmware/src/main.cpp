@@ -218,6 +218,8 @@ void pollWeb(uint32_t now) {
       case api::Command::PAIR_CODE: bot::pairCode(r.arg, now); break;
       case api::Command::SETUP: settings::requestSetup(); break;
       case api::Command::SNAPSHOT: takeShot(r.arg); break;
+      case api::Command::TIMER: bot::timer(r.arg, now); break;
+      case api::Command::QUIET: bot::quiet(r.arg); break;
     }
   }
 }
