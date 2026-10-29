@@ -24,6 +24,7 @@ class Screens {
   void setAgenda(const char *text);  // today's meetings, a line each
   void setToday(const char *text);   // Goli's day in a few lines
   void setAlerts(const char *text);  // the latest alerts; #rrggbb ...# colours the times
+  void relabel();                    // titles in the current language (text.h)
 
  private:
   struct Stat {
@@ -35,5 +36,6 @@ class Screens {
   bool enabled_[COUNT] = {true, true, true, true, true, true, true};
   lv_obj_t *textPage(lv_obj_t *screen, Page p, const char *title);
   Stat stats_[4] = {};
+  lv_obj_t *titles_[COUNT] = {};
   int page_ = FACE;
 };

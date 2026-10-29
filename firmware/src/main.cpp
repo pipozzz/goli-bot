@@ -32,12 +32,14 @@
 #include "mqtt.h"
 #include "ota.h"
 #include "power.h"
+#include "reminders.h"
 #include "rtc.h"
 #include "selftest_ui.h"
 #include "settings.h"
 #include "setup.h"
 #include "sound.h"
 #include "team.h"
+#include "text.h"
 #include "watch.h"
 #include "weather.h"
 
@@ -84,11 +86,11 @@ void rotateFace() {
 
 // A short hint under the mouth when the connection needs attention
 const char *hint() {
-  if (ota::updating()) return "updating myself...";
+  if (ota::updating()) return tr(Txt::UPDATING);
   switch (goliash::status()) {
-    case goliash::Status::NO_WIFI: return "no Wi-Fi - tap me 5x";
-    case goliash::Status::BAD_TOKEN: return "Goliash token? tap 5x";
-    case goliash::Status::UNREACHABLE: return "Goliash unreachable";
+    case goliash::Status::NO_WIFI: return tr(Txt::NO_WIFI);
+    case goliash::Status::BAD_TOKEN: return tr(Txt::BAD_TOKEN);
+    case goliash::Status::UNREACHABLE: return tr(Txt::UNREACHABLE);
     default: return nullptr;
   }
 }
@@ -97,14 +99,14 @@ void overview(Screens &screens, uint32_t now) {
   goliash::Summary s;
   if (!goliash::summary(s)) {
     screens.setOverview(nullptr, 0, 0, 0, 0, 0,
-                        settings::hasGoliash() ? "waiting for Goliash..." : "Goliash not set up (tap me 5x)");
+                        tr(settings::hasGoliash() ? Txt::WAITING_GOLIASH : Txt::GOLIASH_NOT_SET));
     return;
   }
   char ago[24];
   const int32_t age = int32_t(millis() - s.at_ms);  // at_ms comes from the other core
   const int32_t min = age > 0 ? age / 60000 : 0;
-  if (min) snprintf(ago, sizeof ago, "%ld min ago", (long)min);
-  else snprintf(ago, sizeof ago, "just now");
+  if (min) snprintf(ago, sizeof ago, tr(Txt::MIN_AGO), (long)min);
+  else snprintf(ago, sizeof ago, "%s", tr(Txt::JUST_NOW));
   screens.setOverview(s.workspace, s.services, s.drifting, s.updates, s.exploited, s.stale, ago);
 }
 
@@ -133,7 +135,10 @@ Settings cfg;
 uint32_t cfg_version = UINT32_MAX;
 
 void refreshSettings() {
-  if (settings::changes() != cfg_version && settings::tryCopy(cfg)) cfg_version = settings::changes();
+  if (settings::changes() != cfg_version && settings::tryCopy(cfg)) {
+    cfg_version = settings::changes();
+    setLanguage(cfg.lang.c_str());
+  }
 }
 
 Sound alertSound(AlertLevel level) {
@@ -184,6 +189,22 @@ void pollGoliash(uint32_t now) {
   if (goliash::takeAlert(a)) bot::alert(a.title, a.count, a.level, goliash::quietHours(), now, a.prod_deploy);
 }
 
+// The screen, drawn off-screen into PSRAM and halved for the web page's live view
+void takeShot(int id) {
+  static uint8_t *full = nullptr;
+  const uint32_t size = lv_snapshot_buf_size_needed(lv_scr_act(), LV_IMG_CF_TRUE_COLOR);
+  if (!full) full = (uint8_t *)ps_malloc(size);
+  uint16_t *out = api::shot();
+  lv_img_dsc_t dsc;
+  if (!full || !out || lv_snapshot_take_to_buf(lv_scr_act(), LV_IMG_CF_TRUE_COLOR, &dsc, full, size) != LV_RES_OK) return;
+  if (!api::shotLock()) return;  // the last frame is still going out: skip this one
+  const uint16_t *px = (const uint16_t *)full;
+  const int w = dsc.header.w;
+  for (int y = 0; y < api::kShotSize; y++)
+    for (int x = 0; x < api::kShotSize; x++) out[y * api::kShotSize + x] = px[(2 * y) * w + 2 * x];
+  api::shotDone(id);
+}
+
 // What the web page asked for that has to happen here (screen, I2C)
 void pollWeb(uint32_t now) {
   api::Request r;
@@ -195,6 +216,7 @@ void pollWeb(uint32_t now) {
       case api::Command::VOLUME: sound::setVolume(r.arg); break;
       case api::Command::PAIR_CODE: bot::pairCode(r.arg, now); break;
       case api::Command::SETUP: settings::requestSetup(); break;
+      case api::Command::SNAPSHOT: takeShot(r.arg); break;
     }
   }
 }
@@ -210,6 +232,11 @@ void pollSources(uint32_t now) {
   if (weather::accessories() != wear) bot::weather(wear = weather::accessories());
   int dir;
   if (team::takeGlance(dir)) bot::teamAlert(dir, now);
+  char reminder[48];
+  if (reminders::due(reminder, sizeof reminder)) {  // you asked for it: rings even in quiet hours
+    bot::alert(reminder, 1, AlertLevel::INFO, false, now);
+    bot::say(tr(Txt::REMINDER), 10000, now);
+  }
   if (mic_ok && mic::lastSoundMs() && now - mic::lastSoundMs() < 5000) bot::presence(now);
   bot::pages(settings::hasGoliash());
   mqtt::setState(bot::state(now));
@@ -386,6 +413,7 @@ void setup() {
   if (want_setup) setup_mode::run();  // never returns
 
   refreshSettings();
+  reminders::begin();
   bot::Hooks hooks;
   hooks.brightness = setBrightness;
   hooks.rotation = rotation;

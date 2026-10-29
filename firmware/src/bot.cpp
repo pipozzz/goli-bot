@@ -11,6 +11,7 @@
 #include "demo.h"
 #include "motion.h"
 #include "sound.h"
+#include "text.h"
 
 namespace bot {
 namespace {
@@ -218,6 +219,12 @@ void tickSecond(uint32_t now) {
   if (int32_t(now - next) < 0) return;
   next = now + 1000;
 
+  static uint32_t lang_seen = UINT32_MAX;
+  if (languageVersion() != lang_seen) {  // fixed labels in the new language
+    lang_seen = languageVersion();
+    screens.relabel();
+  }
+
   if (focus_until) {
     const int32_t left = int32_t(focus_until - now) / 1000;
     if (left <= 0) {  // done!
@@ -244,7 +251,7 @@ void tickSecond(uint32_t now) {
   localtime_r(&t, &lt);
   char hhmm[8], date[32];
   strftime(hhmm, sizeof hhmm, "%H:%M", &lt);
-  strftime(date, sizeof date, "%a %d %b", &lt);
+  dateText(lt, date, sizeof date);
   face.setClock(clock_ok ? hhmm : nullptr);
   wear();  // a birthday set on the web page shows right away
   if (clock_ok) daily(lt, now);
@@ -255,7 +262,7 @@ void tickSecond(uint32_t now) {
       if (hk.overview) hk.overview(screens, now);
       break;
     case Screens::CLOCK:
-      screens.setClock(clock_ok ? hhmm : "--:--", clock_ok ? date : "no time yet");
+      screens.setClock(clock_ok ? hhmm : "--:--", clock_ok ? date : tr(Txt::NO_TIME));
       break;
     case Screens::ALERTS: {
       static const char *colors[] = {"3fb27f", "8e99f0", "e5484d"};
@@ -274,7 +281,7 @@ void tickSecond(uint32_t now) {
         used += snprintf(text + used, sizeof text - used, "#%s %02d:%02d# %s\n", colors[int(recent[i].level)],
                          m.tm_hour, m.tm_min, title);
       }
-      screens.setAlerts(recent_n ? text : "nothing yet\ntoday");
+      screens.setAlerts(recent_n ? text : tr(Txt::NOTHING_YET));
       break;
     }
     case Screens::AGENDA: {
@@ -287,14 +294,13 @@ void tickSecond(uint32_t now) {
         used += snprintf(text + used, sizeof text - used, "%02d:%02d %.18s\n", m.tm_hour, m.tm_min, meets[i].title);
         if (used >= sizeof text) break;
       }
-      screens.setAgenda(meet_n ? text : "no more meetings\ntoday");
+      screens.setAgenda(meet_n ? text : tr(Txt::NO_MEETINGS));
       break;
     }
     case Screens::TODAY: {
       char text[256];
-      snprintf(text, sizeof text, "%d alerts, %d critical\n%d good news\n%d focus sessions\npetted %dx, booped %dx\n%s",
-               today_alerts, today_critical, today_good, today_focus, today_pets, today_boops,
-               yday_alerts < 0 ? "" : (yday_alerts > 15 ? "rough yesterday" : "calm yesterday"));
+      snprintf(text, sizeof text, tr(Txt::DAY_STATS), today_alerts, today_critical, today_good, today_focus, today_pets,
+               today_boops, yday_alerts < 0 ? "" : tr(yday_alerts > 15 ? Txt::ROUGH_YESTERDAY : Txt::CALM_YESTERDAY));
       screens.setToday(text);
       break;
     }
@@ -345,27 +351,28 @@ void daily(const struct tm &lt, uint32_t now) {
     snprintf(today, sizeof today, "%02d-%02d", lt.tm_mon + 1, lt.tm_mday);
     face.setMood(Mood::HAPPY, 2500);
     chime(talks() ? Sound::YAY : Sound::CHIRP, now);
-    say(bday && !strcmp(bday, today) ? "happy birthday!" : "good morning!", 8000, now);
+    say(tr(bday && !strcmp(bday, today) ? Txt::HAPPY_BIRTHDAY : Txt::GOOD_MORNING), 8000, now);
     // The day ahead, in one line: meetings and what to wear
     char brief[64];
-    const char *sky = weather_mask & UMBRELLA ? "rain later" : weather_mask & SUNGLASSES ? "sunny" :
-                      weather_mask & SCARF ? "freezing" : nullptr;
-    if (meet_n) snprintf(brief, sizeof brief, "%d meeting%s%s%s", meet_n, meet_n > 1 ? "s" : "", sky ? ", " : "", sky ? sky : "");
-    else snprintf(brief, sizeof brief, "%s", sky ? sky : "");
+    const char *sky = weather_mask & UMBRELLA ? tr(Txt::RAIN_LATER) : weather_mask & SUNGLASSES ? tr(Txt::SUNNY) :
+                      weather_mask & SCARF ? tr(Txt::FREEZING) : nullptr;
+    char meetings[32] = "";
+    if (meet_n) snprintf(meetings, sizeof meetings, meetingsText(meet_n), meet_n);
+    snprintf(brief, sizeof brief, "%s%s%s", meetings, *meetings && sky ? ", " : "", sky ? sky : "");
     if (*brief && !(pairing_until && int32_t(pairing_until - now) > 0)) face.showTitle(brief, 8000);
   }
   if (friday_day != lt.tm_yday && lt.tm_wday == 5 && lt.tm_hour >= 17) {  // weekend!
     friday_day = lt.tm_yday;
     face.setMood(Mood::WINK, 2000);
     chime(talks() ? Sound::YAY : Sound::CHIRP, now);
-    say("it's Friday - go home!", 8000, now);
+    say(tr(Txt::GO_HOME), 8000, now);
   }
   const int break_min = hk.breakMin ? hk.breakMin() : 50;
   if (break_min > 0 && !focus_until && present_since && now - present_since > break_min * 60000UL) {
     present_since = now;  // the next one in another break_min
     face.setMood(Mood::SURPRISED, 1200);
     chime(talks() ? Sound::HM : Sound::DROP, now);
-    say("stretch? water?", 10000, now);
+    say(tr(Txt::STRETCH), 10000, now);
   }
 }
 
@@ -509,7 +516,7 @@ void alert(const char *title, int count, AlertLevel level, bool quiet_hours, uin
   if (prod_deploy && localTime(lt) && lt.tm_wday == 5 && lt.tm_hour >= 15) {  // to production, on a Friday?!
     face.setMood(Mood::WINCE, 3000);
     sound::play(talks() ? Sound::EH : alertSound(level));
-    say("on a Friday?!", 8000, now);
+    say(tr(Txt::ON_A_FRIDAY), 8000, now);
     return;
   }
   switch (level) {
@@ -558,7 +565,7 @@ void knock(uint32_t now) {
   face.clearAlert();
   face.setMood(Mood::WINK, 1000);
   sound::stop();
-  say("snoozed for 10 min", 5000, now);
+  say(tr(Txt::SNOOZED), 5000, now);
 }
 
 void teamAlert(int dir, uint32_t now) {
@@ -610,7 +617,7 @@ void pairCode(int code, uint32_t now) {
   wake(now);
   screens.show(Screens::FACE);
   char text[24];
-  snprintf(text, sizeof text, "code %06d", code);
+  snprintf(text, sizeof text, tr(Txt::PAIR_CODE), code);
   face.showTitle(text, 120000);
   face.setMood(Mood::SURPRISED, 1500);
   sound::play(talks() ? Sound::HM : Sound::CHIRP);

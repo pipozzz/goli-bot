@@ -3,6 +3,7 @@
 #include <Arduino.h>
 
 #include "sound.h"
+#include "text.h"
 
 namespace demo {
 namespace {
@@ -53,7 +54,7 @@ void start(Face &face) {
   on = true;
   started = millis();
   next = 0;
-  face.showStatus("demo - tap to stop");
+  face.showStatus(tr(Txt::DEMO_HINT));
 }
 
 void stop(Face &face, Mood resting) {

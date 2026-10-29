@@ -129,6 +129,11 @@ Turn it off on the web page.
 
 ### His day
 
+- **Language:** Goli's words on his face (greetings, pages, hints) in English, Slovak, Czech or German,
+  chosen on the web page. The fonts have no accents, so it's "dobre rano!".
+- **Reminders:** "14:00 call mum" once, every day or on weekdays, set on the web page. He rings with the
+  title at that minute, even in quiet hours (you asked for it).
+
 - **Mood follows yesterday:** after a day with many alerts (critical ones count three times) his resting
   lids are heavier the next morning. At midnight today becomes yesterday, and it survives a restart.
 - **Desk buddy** (on by default): the first time someone is at the desk in the morning he says good
@@ -267,11 +272,14 @@ The first time, click *Show me a code*: Goli shows a 6-digit code on his face, a
 browser (5 wrong tries and the code is gone, and every further round makes you wait twice as long). Only someone standing next to Goli can pair. From then on
 everything is there:
 
-- **Home:** connections, today's meetings, the latest alerts; boop him, start focus or the demo, test alerts.
+- **Home:** connections, **his face live** (a snapshot every 2 seconds), **reminders**, today's meetings, the
+  latest alerts; boop him, start focus or the demo, test alerts.
 - **Sounds:** a sound per kind of alert with a play button, Goli talks, volume, quiet hours, your own sound.
 - **Alerts:** Goliash (optional), which alerts ring, GitHub, URLs to keep an eye on, the key for scripts.
 - **Day:** calendar, weather, desk buddy, birthday, the microphones, the team.
-- **Goli:** Wi-Fi, updates, restart, setup mode, forget this browser.
+- **Goli:** Wi-Fi, Home Assistant, language, night, updates, **install a firmware file** (`goli-app.bin`
+  from a release, or your own build: no USB needed once he's assembled), **backup and restore** (every
+  setting and reminder, secrets included, in one JSON file), restart, setup mode, forget this browser.
 
 Secrets (Wi-Fi password, tokens, the calendar address) are never shown back. The setup hotspot (tap 5
 times) still works for the first setup or a new Wi-Fi.

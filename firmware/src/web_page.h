@@ -51,6 +51,13 @@ code{background:var(--bg);padding:1px 5px;border-radius:5px;word-break:break-all
 
 <section data-tab="Home">
 <div class="card"><h2>Right now</h2><div class="kv" id="state"></div></div>
+<div class="card"><h2>His face</h2><canvas id="live" width="233" height="233" style="width:180px;height:180px;border-radius:50%;background:#000;display:block;margin:0 auto 10px"></canvas>
+<div class="bar" style="justify-content:center"><button class="b ghost" id="liveBtn" onclick="toggleLive()">Watch live</button></div></div>
+<div class="card"><h2>Reminders</h2><div class="log" id="reminders"></div>
+<div class="row" style="margin-top:8px"><label style="flex:.6">At<input type="time" id="r_time" value="14:00"></label>
+<label style="flex:.8">Repeat<select id="r_repeat"><option value="once">once</option><option value="daily">every day</option><option value="weekdays">weekdays</option></select></label></div>
+<label>What<input id="r_title" placeholder="call mum" maxlength="40"></label>
+<button class="b ghost" onclick="addReminder()">Add reminder</button></div>
 <div class="card"><h2>Play with him</h2><div class="bar">
 <button class="b ghost" onclick="act('poke')">Boop</button><button class="b ghost" id="focusBtn" onclick="act('focus')">Focus</button>
 <button class="b ghost" onclick="act('demo')">Demo loop</button></div></div>
@@ -123,8 +130,13 @@ code{background:var(--bg);padding:1px 5px;border-radius:5px;word-break:break-all
 <div class="card"><h2>Home Assistant</h2><p class="sub">Over MQTT: Goli shows up as a device with sensors, buttons and a notify entity.</p>
 <div class="row"><label>Broker<input data-k="mqtt_host" placeholder="homeassistant.local" autocapitalize="none"></label><label style="flex:.4">Port<input type="number" data-k="mqtt_port"></label></div>
 <div class="row"><label>User<input data-k="mqtt_user" autocapitalize="none"></label><label>Password<input type="password" data-k="mqtt_pass" placeholder="unchanged" autocomplete="off"></label></div></div>
+<div class="card"><h2>Language</h2><label>What Goli says on his face<select data-k="lang"><option value="en">English</option><option value="sk">Slovensky</option><option value="cs">Cesky</option><option value="de">Deutsch</option></select></label></div>
 <div class="card"><h2>Night</h2><label class="check"><input type="checkbox" data-k="night">Screen off while he sleeps in quiet hours (a touch wakes him)</label></div>
 <div class="card"><h2>Updates</h2><label class="check"><input type="checkbox" data-k="ota">Install new versions by himself (once a day)</label><p class="sub" id="ver"></p></div>
+<div class="card"><h2>Firmware</h2><p class="sub">Install a build by hand: <code>goli-app.bin</code> from a release, or your own <code>.pio/build/goli/firmware.bin</code>.</p>
+<input type="file" id="fw" accept=".bin"><p><button class="b ghost" onclick="uploadFirmware()">Install</button> <span id="fwState" class="sub"></span></p></div>
+<div class="card"><h2>Backup</h2><p class="sub">Every setting and reminder, secrets included, in one file: keep it safe.</p>
+<div class="bar"><button class="b ghost" onclick="downloadBackup()">Download</button><label class="b ghost" style="margin:0;cursor:pointer">Restore<input type="file" id="restore" accept=".json" hidden onchange="restoreBackup()"></label></div></div>
 <div class="card"><h2>More</h2><div class="bar"><button class="b ghost" onclick="act('restart')">Restart</button>
 <button class="b ghost" onclick="act('setup')">Setup mode (hotspot)</button><button class="b ghost" onclick="unpair()">Forget this browser</button></div></div>
 </section>
@@ -182,12 +194,31 @@ async function uploadSound(){const f=$('#file').files[0];if(!f)return toast('Pic
  for(let i=0;i<out.length;i++)pcm[i]=Math.max(-1,Math.min(1,out[i]*g))*32767;
  const fd=new FormData();fd.append('sound',new Blob([pcm.buffer]),'custom.pcm');
  try{await api('/api/sound',fd,true);toast('Uploaded');cfg.custom=true;fill()}catch(e){toast('Upload failed: '+e)}}
+let liveTimer=null;
+async function liveFrame(){try{const r=await fetch('/api/face',{headers:{Authorization:'Bearer '+token}});if(!r.ok)return;
+ const px=new Uint16Array(await r.arrayBuffer()),c=$('#live').getContext('2d'),img=c.createImageData(233,233);
+ for(let i=0;i<px.length;i++){const v=px[i];img.data[4*i]=(v>>11)<<3;img.data[4*i+1]=((v>>5)&63)<<2;img.data[4*i+2]=(v&31)<<3;img.data[4*i+3]=255}
+ c.putImageData(img,0,0)}catch(e){}}
+function toggleLive(){if(liveTimer){clearInterval(liveTimer);liveTimer=null;$('#liveBtn').textContent='Watch live';return}
+ liveFrame();liveTimer=setInterval(()=>{if(!document.hidden)liveFrame()},2000);$('#liveBtn').textContent='Stop'}
+async function loadReminders(){try{const r=await api('/api/reminders');
+ $('#reminders').innerHTML=r.length?r.map(x=>`<div><span style="flex:1">${x.time} ${esc(x.title)} <small style="display:inline">${x.repeat=='once'?String(x.date).replace(/(\d{4})(\d\d)(\d\d)/,'$3.$2.'):x.repeat}</small></span><button class="b ghost" style="padding:2px 9px" onclick="delReminder(${x.id})">&times;</button></div>`).join(''):'<div>None yet.</div>'}catch(e){}}
+async function addReminder(){try{await api('/api/reminders',{time:$('#r_time').value,repeat:$('#r_repeat').value,title:$('#r_title').value});$('#r_title').value='';loadReminders();toast('Added')}catch(e){toast(''+e)}}
+async function delReminder(id){try{await api('/api/reminders/delete',{id});loadReminders()}catch(e){}}
+async function uploadFirmware(){const f=$('#fw').files[0];if(!f)return toast('Pick a .bin file');$('#fwState').textContent='Installing...';
+ const fd=new FormData();fd.append('fw',f,f.name);try{await api('/api/firmware',fd,true);$('#fwState').textContent='Done: Goli restarts.'}catch(e){$('#fwState').textContent='Failed: '+e}}
+async function downloadBackup(){const r=await fetch('/api/backup',{headers:{Authorization:'Bearer '+token}});if(!r.ok)return toast('No backup');
+ const a=document.createElement('a');a.href=URL.createObjectURL(await r.blob());a.download=cfg.host+'-backup.json';a.click()}
+async function restoreBackup(){const f=$('#restore').files[0];if(!f)return;try{const b=JSON.parse(await f.text());if(!b.goli_backup)throw 'not a Goli backup';
+ const rem=b.reminders||[];delete b.reminders;delete b.goli_backup;await api('/api/config',b);
+ for(const x of await api('/api/reminders'))await api('/api/reminders/delete',{id:x.id});
+ for(const x of rem)await api('/api/reminders',x);cfg=await api('/api/config');fill();loadReminders();toast('Restored. Restart Goli if Wi-Fi changed.')}catch(e){toast('Not restored: '+e)}}
 function tabs(){const names=$$('section').map(s=>s.dataset.tab);
  $('#tabs').innerHTML=names.map((n,i)=>`<button class="${i?'':'on'}">${n}</button>`).join('');
  $$('#tabs button').forEach((b,i)=>b.onclick=()=>{$$('#tabs button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
   $$('section').forEach((s,j)=>s.classList.toggle('on',i==j))});$$('section')[0].classList.add('on')}
 async function start(){try{cfg=await api('/api/config')}catch(e){return}
- $('#pair').hidden=true;$('#app').hidden=false;await refresh();fill();setInterval(refresh,5000)}
+ $('#pair').hidden=true;$('#app').hidden=false;await refresh();fill();loadReminders();setInterval(refresh,5000)}
 tabs();start();
 </script></body></html>
 )HTML";

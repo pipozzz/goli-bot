@@ -29,26 +29,6 @@ void ensureKey() {
   if (s.api_key.length()) return;
   s.api_key = randomKey();
   prefs.putString("key", s.api_key);
-  prefs.putString("sndi", s.snd_info);
-  prefs.putString("sndc", s.snd_crit);
-  prefs.putString("sndg", s.snd_good);
-  prefs.putBool("talk", s.talk);
-  prefs.putString("ics", s.ics);
-  prefs.putString("lat", s.lat);
-  prefs.putString("lon", s.lon);
-  prefs.putString("gh", s.gh_token);
-  prefs.putString("watch", s.watch);
-  prefs.putString("tleft", s.team_left);
-  prefs.putString("tright", s.team_right);
-  prefs.putBool("buddy", s.buddy);
-  prefs.putInt("brk", s.break_min);
-  prefs.putInt("focus", s.focus_min);
-  prefs.putBool("night", s.night_off);
-  prefs.putString("mqh", s.mqtt_host);
-  prefs.putString("mqu", s.mqtt_user);
-  prefs.putString("mqp", s.mqtt_pass);
-  prefs.putInt("mqport", s.mqtt_port);
-  prefs.putString("bday", s.birthday);
 }
 
 void load() {
@@ -95,6 +75,7 @@ void load() {
   s.break_min = prefs.getInt("brk", 50);
   s.focus_min = prefs.getInt("focus", FOCUS_MIN);
   s.night_off = prefs.getBool("night", false);
+  s.lang = prefs.getString("lang", "en");
   s.mqtt_host = prefs.getString("mqh");
   s.mqtt_user = prefs.getString("mqu");
   s.mqtt_pass = prefs.getString("mqp");
@@ -136,6 +117,13 @@ void save() {
   prefs.putBool("buddy", s.buddy);
   prefs.putInt("brk", s.break_min);
   prefs.putString("bday", s.birthday);
+  prefs.putInt("focus", s.focus_min);
+  prefs.putBool("night", s.night_off);
+  prefs.putString("lang", s.lang);
+  prefs.putString("mqh", s.mqtt_host);
+  prefs.putString("mqu", s.mqtt_user);
+  prefs.putString("mqp", s.mqtt_pass);
+  prefs.putInt("mqport", s.mqtt_port);
 }
 
 Settings &get() { return s; }

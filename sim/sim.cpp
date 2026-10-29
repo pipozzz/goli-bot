@@ -12,6 +12,7 @@
 #include "config.h"
 #include "sound.h"
 #include "synth.h"
+#include "text.h"
 
 namespace {
 
@@ -185,6 +186,7 @@ EMSCRIPTEN_KEEPALIVE void sim_desk(int on, int minutes) {
   break_min = minutes;
 }
 EMSCRIPTEN_KEEPALIVE void sim_focus_min(int m) { focus_min = m; }
+EMSCRIPTEN_KEEPALIVE void sim_lang(const char *code) { setLanguage(code); }
 EMSCRIPTEN_KEEPALIVE void sim_knock() { bot::knock(uint32_t(emscripten_get_now())); }
 EMSCRIPTEN_KEEPALIVE void sim_team(int dir) { bot::teamAlert(dir, uint32_t(emscripten_get_now())); }
 EMSCRIPTEN_KEEPALIVE void sim_yesterday(int alerts) { bot::yesterday(alerts, 0); }

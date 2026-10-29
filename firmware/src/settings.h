@@ -39,6 +39,7 @@ struct Settings {
   int break_min = 50;       // minutes at the desk before a stretch break (0 = never)
   int focus_min = FOCUS_MIN;  // focus mode (3 taps)
   bool night_off = false;   // screen off while he sleeps in quiet hours
+  String lang = "en";      // Goli's words on the screen: en, sk, cs, de
 
   // Home Assistant (MQTT discovery); empty host = off
   String mqtt_host, mqtt_user, mqtt_pass;

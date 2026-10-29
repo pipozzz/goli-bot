@@ -131,7 +131,8 @@
         <div class="row"><label style="flex:1">Focus (3 taps) lasts <input type="range" id="focusmin" min="1" max="60" value="25"> <output id="focusv">25</output> min</label></div>
         <div class="row"><button class="b" id="knock">Knock knock (snooze)</button>
           <button class="b" id="tleft">Left Goli rang</button><button class="b" id="tright">Right Goli rang</button></div>
-        <div class="row"><button class="b" id="goliash" aria-pressed="true">Goliash connected</button></div>
+        <div class="row"><button class="b" id="goliash" aria-pressed="true">Goliash connected</button>
+          <select id="lang" aria-label="Language" style="flex:1"><option value="en">English</option><option value="sk">Slovensky</option><option value="cs">Cesky</option><option value="de">Deutsch</option></select></div>
       </div>
 
       <div class="panel">
@@ -234,6 +235,7 @@ function wire() {
     Module.ccall('sim_meeting', null, ['string', 'number'], [document.getElementById('mtitle').value || 'meeting', 120]);
   document.getElementById('yday').oninput = e => Module._sim_yesterday(+e.target.value);
   document.getElementById('knock').onclick = () => Module._sim_knock();
+  document.getElementById('lang').onchange = e => Module.ccall('sim_lang', null, ['string'], [e.target.value]);
   document.getElementById('focusmin').oninput = e => { document.getElementById('focusv').value = e.target.value; Module._sim_focus_min(+e.target.value); };
   document.getElementById('tleft').onclick = () => Module._sim_team(-1);
   document.getElementById('tright').onclick = () => Module._sim_team(1);

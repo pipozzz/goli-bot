@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include "config.h"
+#include "text.h"
 
 LV_FONT_DECLARE(font_clock);  // big digits, tools/make_clock_font.py
 
@@ -90,7 +91,7 @@ void Screens::begin(lv_obj_t *screen) {
 
 lv_obj_t *Screens::textPage(lv_obj_t *screen, Page p, const char *title) {
   lv_obj_t *pg = pages_[p] = makePage(screen);
-  lv_obj_t *head = label(pg, &lv_font_montserrat_28, kLight, 300);
+  lv_obj_t *head = titles_[p] = label(pg, &lv_font_montserrat_28, kLight, 300);
   lv_obj_set_pos(head, kC - 150, 70);
   lv_label_set_text(head, title);
   lv_obj_t *body = label(pg, &lv_font_montserrat_28, 0xffffff, 340);
@@ -145,7 +146,7 @@ void Screens::setOverview(const char *workspace, int services, int drifting, int
     const uint32_t color = values[i] == 0 ? kGreen : (bad_when_any[i] ? kRed : 0xffffff);
     lv_obj_set_style_text_color(stats_[i].value, lv_color_hex(color), 0);
   }
-  lv_label_set_text_fmt(ws_note_, "%d services  -  %s", services, ago);
+  lv_label_set_text_fmt(ws_note_, tr(Txt::SERVICES_AGO), services, ago);
 }
 
 void Screens::setClock(const char *hhmm, const char *date) {
@@ -160,3 +161,12 @@ void Screens::setAgenda(const char *text) { lv_label_set_text(agenda_, text); }
 void Screens::setToday(const char *text) { lv_label_set_text(today_, text); }
 
 void Screens::setAlerts(const char *text) { lv_label_set_text(alerts_, text); }
+
+void Screens::relabel() {
+  if (titles_[ALERTS]) lv_label_set_text(titles_[ALERTS], tr(Txt::ALERTS));
+  if (titles_[AGENDA]) lv_label_set_text(titles_[AGENDA], tr(Txt::TODAY));
+  if (titles_[TODAY]) lv_label_set_text(titles_[TODAY], tr(Txt::GOLIS_DAY));
+  const Txt names[] = {Txt::DRIFTING, Txt::TO_UPDATE, Txt::EXPLOITED, Txt::STALE};
+  for (int i = 0; i < 4; i++)
+    if (stats_[i].label) lv_label_set_text(stats_[i].label, tr(names[i]));
+}

@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "config.h"
+#include "text.h"
 
 namespace {
 
@@ -502,7 +503,7 @@ void Face::setMeeting(const char *title, int remaining_s, int total_s) {
   setFocus(remaining_s, total_s);
   lv_obj_set_y(focus_txt_, 408);  // below the meeting's name
   lv_obj_set_style_arc_color(focus_arc_, lv_color_hex(0xf0a64c), LV_PART_INDICATOR);
-  lv_label_set_text_fmt(focus_txt_, "in %d:%02d", remaining_s / 60, remaining_s % 60);
+  lv_label_set_text_fmt(focus_txt_, tr(Txt::IN_COUNTDOWN), remaining_s / 60, remaining_s % 60);
   if (!unseen_) {
     if (strcmp(lv_label_get_text(title_), title)) lv_label_set_text(title_, title);
     lv_obj_clear_flag(title_, LV_OBJ_FLAG_HIDDEN);
