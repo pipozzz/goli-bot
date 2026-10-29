@@ -15,6 +15,7 @@ const int kFrames = 256;     // 16 ms at 16 kHz
 
 volatile bool clap = false, noisy = false;
 volatile int level = -90;
+volatile uint32_t heard_ms = 0;
 
 bool reg(uint8_t r, uint8_t v) {
   Wire.beginTransmission(kAddr);
@@ -81,6 +82,7 @@ void task(void *) {
     floor_db += (db - floor_db) * (db < floor_db ? 0.05f : 0.0003f);
 
     const uint32_t now = millis();
+    if (db > floor_db + 8.f) heard_ms = now;
     // A clap: a sharp jump well above the room that is gone again within 200 ms
     if (!onset && db > floor_db + 25.f && db > -32.f) onset = now;
     if (onset && db < floor_db + 12.f) {
@@ -118,5 +120,7 @@ bool takeClap() {
 bool loud() { return noisy; }
 
 int levelDb() { return level; }
+
+uint32_t lastSoundMs() { return heard_ms; }
 
 }  // namespace mic

@@ -9,9 +9,15 @@
 
 #include <algorithm>
 
+#include "calendar.h"
+#include "text.h"
 #include "config.h"
+#include "github.h"
 #include "ota.h"
 #include "settings.h"
+#include "team.h"
+#include "watch.h"
+#include "weather.h"
 
 namespace goliash {
 namespace {
@@ -20,6 +26,9 @@ QueueHandle_t alerts = nullptr;
 volatile Status state = Status::OFF;
 int64_t last_ms = 0;  // newest sent_at seen, Unix ms (0 = not polled yet)
 Summary last_summary;
+LogEntry history[20];
+int history_n = 0, history_at = 0;
+portMUX_TYPE history_lock = portMUX_INITIALIZER_UNLOCKED;
 portMUX_TYPE summary_lock = portMUX_INITIALIZER_UNLOCKED;
 
 // Days since 1970-01-01 for a civil date (Howard Hinnant's algorithm).
@@ -52,38 +61,6 @@ int64_t parseTime(const char *s) {
   return secs * 1000 + ms;
 }
 
-// The built-in font is ASCII only: fold common accented letters (Slovak, Czech, German...).
-void foldAscii(const char *in, char *out, size_t cap) {
-  static const char *from[] = {"á", "ä", "à", "â", "č", "ď", "é", "ě", "è", "ê", "í", "ĺ", "ľ", "ň", "ó", "ô", "ö", "ŕ",
-                               "ř", "š", "ť", "ú", "ů", "ü", "ý", "ž", "Á", "Ä", "Č", "Ď", "É", "Ě", "Í", "Ĺ", "Ľ", "Ň",
-                               "Ó", "Ô", "Ö", "Ŕ", "Ř", "Š", "Ť", "Ú", "Ů", "Ü", "Ý", "Ž", "ß", "–", "—", "’", "“", "”", "…"};
-  static const char *to[] = {"a", "a", "a", "a", "c", "d", "e", "e", "e", "e", "i", "l", "l", "n", "o", "o", "o", "r",
-                             "r", "s", "t", "u", "u", "u", "y", "z", "A", "A", "C", "D", "E", "E", "I", "L", "L", "N",
-                             "O", "O", "O", "R", "R", "S", "T", "U", "U", "U", "Y", "Z", "ss", "-", "-", "'", "\"", "\"", "..."};
-  size_t o = 0;
-  while (*in && o + 4 < cap) {
-    if ((uint8_t)*in < 0x80) {
-      out[o++] = *in++;
-      continue;
-    }
-    bool hit = false;
-    for (size_t k = 0; k < sizeof from / sizeof *from; k++) {
-      const size_t len = strlen(from[k]);
-      if (!strncmp(in, from[k], len)) {
-        for (const char *t = to[k]; *t && o + 1 < cap;) out[o++] = *t++;
-        in += len;
-        hit = true;
-        break;
-      }
-    }
-    if (!hit) {  // unknown character: skip the whole UTF-8 sequence
-      out[o++] = '?';
-      for (in++; ((uint8_t)*in & 0xC0) == 0x80; in++) {
-      }
-    }
-  }
-  out[o] = 0;
-}
 
 // What one notification item means for Goli (types from Goliash's notifier)
 AlertLevel levelOf(JsonObjectConst item) {
@@ -98,8 +75,7 @@ AlertLevel levelOf(JsonObjectConst item) {
 }
 
 // Does an item pass the filter from setup? Items without an environment or a service always pass.
-bool wanted(JsonObjectConst item, AlertLevel level) {
-  const Settings &cfg = settings::get();
+bool wanted(const Settings &cfg, JsonObjectConst item, AlertLevel level) {
   if (cfg.min_level >= int(AlertLevel::CRITICAL) && level != AlertLevel::CRITICAL) return false;
   if (cfg.prod_only && item["environment"].is<const char *>() && !(item["production"] | false)) return false;
   const char *svc = item["service"] | "";
@@ -117,30 +93,47 @@ bool wanted(JsonObjectConst item, AlertLevel level) {
   return true;
 }
 
+// A release that reached production
+bool prodDeploy(JsonObjectConst item) {
+  const char *type = item["type"] | "";
+  return (item["production"] | false) && (!strcmp(type, "deployed") || !strcmp(type, "rollout"));
+}
+
 // The worst level among the items that pass the filter; false when none does.
-bool judge(JsonArrayConst items, AlertLevel &level) {
+bool judge(const Settings &cfg, JsonArrayConst items, AlertLevel &level, bool *prod = nullptr) {
   bool any = false;
   for (JsonObjectConst item : items) {
     const AlertLevel l = levelOf(item);
-    if (!wanted(item, l)) continue;
+    if (!wanted(cfg, item, l)) continue;
+    if (prod && prodDeploy(item)) *prod = true;
     level = any ? std::max(level, l) : l;
     any = true;
   }
   return any;
 }
 
-void queue(const char *title, int count, AlertLevel level) {
+void queue(const char *title, int count, AlertLevel level, bool prod_deploy = false) {
   Alert a;
   a.count = count > 99 ? 99 : count;
   a.level = level;
+  a.prod_deploy = prod_deploy;
   foldAscii(title, a.title, sizeof a.title);
-  Serial.printf("goliash: %d new, \"%s\"\n", count, a.title);
+  Serial.printf("alert: %d new, \"%s\"\n", count, a.title);
   xQueueSend(alerts, &a, 0);
+  LogEntry e;
+  const time_t now = time(nullptr);
+  e.at = now > 1700000000 ? int64_t(now) : 0;
+  e.level = level;
+  snprintf(e.title, sizeof e.title, "%s", a.title);
+  portENTER_CRITICAL(&history_lock);
+  history[history_at] = e;
+  history_at = (history_at + 1) % 20;
+  if (history_n < 20) history_n++;
+  portEXIT_CRITICAL(&history_lock);
 }
 
 // GET a Goliash API path into doc; updates the connection state. Returns true on 200 + valid JSON.
-bool fetch(const String &path, JsonDocument &doc, const JsonDocument *filter) {
-  const Settings &cfg = settings::get();
+bool fetch(const Settings &cfg, const String &path, JsonDocument &doc, const JsonDocument *filter) {
   NetworkClientSecure tls;
   NetworkClient plain;
   const bool https = cfg.url.startsWith("https://");
@@ -154,6 +147,7 @@ bool fetch(const String &path, JsonDocument &doc, const JsonDocument *filter) {
   http.addHeader("Authorization", "Bearer " + cfg.token);
   http.addHeader("Accept", "application/json");
   http.setTimeout(8000);
+  http.useHTTP10(true);  // no chunked encoding: the JSON is read straight off the socket
   const int code = http.GET();
   if (code != 200) {
     Serial.printf("goliash: %s HTTP %d\n", path.c_str(), code);
@@ -175,6 +169,7 @@ bool fetch(const String &path, JsonDocument &doc, const JsonDocument *filter) {
 }
 
 void poll() {
+  const Settings cfg = settings::copy();
   // First poll only learns where we are; afterwards ask for what came after the newest one seen.
   char since[40];
   if (last_ms) {
@@ -191,18 +186,19 @@ void poll() {
   filter[0]["title"] = true;
   for (const char *f : {"type", "production", "environment", "service"}) filter[0]["items"][0][f] = true;
   JsonDocument doc;
-  if (!fetch(String("/api/v1/notifications/sent?since=") + since, doc, &filter)) return;
+  if (!fetch(cfg, String("/api/v1/notifications/sent?since=") + since, doc, &filter)) return;
 
   // Newest first
   int64_t newest = last_ms;
   int fresh = 0;
   const char *title = nullptr;
   AlertLevel level = AlertLevel::GOOD;
+  bool prod = false;
   for (JsonObject m : doc.as<JsonArray>()) {
     const int64_t t = parseTime(m["sent_at"]);
     if (t > newest) newest = t;
     AlertLevel l;
-    if (last_ms && t > last_ms && judge(m["items"], l)) {
+    if (last_ms && t > last_ms && judge(cfg, m["items"], l, &prod)) {
       if (!title) title = m["title"] | "";
       level = fresh ? std::max(level, l) : l;
       fresh++;
@@ -213,12 +209,13 @@ void poll() {
   // Nothing sent yet and no clock: stay in "learn" mode rather than ask for everything since 1970
   last_ms = newest ? newest : (now > 1700000000 ? int64_t(now) * 1000 : 0);
   if (first || !fresh) return;
-  queue(title, fresh, level);
+  queue(title, fresh, level, prod);
 }
 
 void pollSummary() {
+  const Settings cfg = settings::copy();
   JsonDocument doc;
-  if (!fetch("/api/v1/summary", doc, nullptr)) return;
+  if (!fetch(cfg, "/api/v1/summary", doc, nullptr)) return;
   Summary s;
   s.valid = true;
   foldAscii(doc["workspace"] | "", s.workspace, sizeof s.workspace);
@@ -233,6 +230,15 @@ void pollSummary() {
   portEXIT_CRITICAL(&summary_lock);
 }
 
+volatile bool refresh = false;  // settings changed: poll everything now
+
+bool due(uint32_t &next, uint32_t every_ms) {
+  if (!refresh && int32_t(millis() - next) < 0) return false;
+  next = millis() + every_ms;
+  return true;
+}
+
+// The network task: Wi-Fi, then every source in turn, each on its own schedule
 void task(void *) {
   const Settings &cfg = settings::get();
   WiFi.mode(WIFI_STA);
@@ -241,26 +247,33 @@ void task(void *) {
   configTzTime(GOLI_TZ, "pool.ntp.org", "time.google.com");
   state = Status::CONNECTING;
   const uint32_t started = millis();
-  uint32_t next_ota = OTA_FIRST_CHECK_S * 1000UL, next_summary = 0;
+  uint32_t next_ota = OTA_FIRST_CHECK_S * 1000UL, next_summary = 0, next_poll = 0, next_cal = 0,
+           next_weather = 0, next_gh = 0, next_watch = 0, next_hello = 0;
   for (;;) {
-    if (WiFi.status() == WL_CONNECTED) {
-      if (!settings::hasGoliash()) {
-        state = Status::OK;
-      } else {
-        if (int32_t(millis() - next_summary) >= 0) {
-          pollSummary();
-          next_summary = millis() + GOLIASH_SUMMARY_S * 1000UL;
-        }
-        if (!cfg.push) poll();  // with webhooks, Goliash tells Goli itself
-      }
-      if (int32_t(millis() - next_ota) >= 0) {
-        const bool ok = ota::check();  // restarts Goli when it installs an update
-        next_ota = millis() + (ok ? OTA_EVERY_H * 3600000UL : 3600000UL);
-      }
-    } else if (millis() - started > 45000) {
-      state = Status::NO_WIFI;
+    if (WiFi.status() != WL_CONNECTED) {
+      if (millis() - started > 45000) state = Status::NO_WIFI;
+      vTaskDelay(pdMS_TO_TICKS(5000));
+      continue;
     }
-    vTaskDelay(pdMS_TO_TICKS((state == Status::OK ? GOLIASH_POLL_S : 10) * 1000));
+    team::begin();
+    const bool forced = refresh;
+    if (!settings::hasGoliash()) {
+      state = Status::OK;  // Goliash is optional
+    } else {
+      if (due(next_summary, GOLIASH_SUMMARY_S * 1000UL)) pollSummary();
+      if (!settings::get().push && due(next_poll, GOLIASH_POLL_S * 1000UL)) poll();  // webhooks: Goliash calls
+    }
+    if (due(next_cal, 10 * 60000UL)) calendar::poll();
+    if (due(next_weather, 30 * 60000UL)) weather::poll();
+    if (due(next_gh, 60000UL)) github::poll();
+    if (due(next_watch, 60000UL)) watch::poll();
+    if (due(next_hello, 60000UL)) team::hello();
+    if (forced) refresh = false;
+    if (int32_t(millis() - next_ota) >= 0) {
+      const bool ok = ota::check();  // restarts Goli when it installs an update
+      next_ota = millis() + (ok ? OTA_EVERY_H * 3600000UL : 3600000UL);
+    }
+    vTaskDelay(pdMS_TO_TICKS(2000));
   }
 }
 
@@ -270,7 +283,7 @@ bool configured() { return settings::hasWifi(); }
 
 void begin() {
   if (!alerts) alerts = xQueueCreate(4, sizeof(Alert));
-  if (configured()) xTaskCreatePinnedToCore(task, "goli_net", 12288, nullptr, 1, nullptr, 0);
+  if (configured()) xTaskCreatePinnedToCore(task, "goli_net", 16384, nullptr, 1, nullptr, 0);
 }
 
 Status status() { return state; }
@@ -279,12 +292,13 @@ bool takeAlert(Alert &out) { return alerts && xQueueReceive(alerts, &out, 0) == 
 
 bool pushMessage(JsonObjectConst msg) {
   AlertLevel level;
+  bool prod = false;
   JsonArrayConst items = msg["items"];
-  if (!alerts || !judge(items, level)) return false;
+  if (!alerts || !judge(settings::copy(), items, level, &prod)) return false;
   char title[96];
   if (items.size() == 1) snprintf(title, sizeof title, "%s", (const char *)(items[0]["text"] | "Goliash"));
   else snprintf(title, sizeof title, "%u updates in %s", unsigned(items.size()), (const char *)(msg["workspace"] | "Goliash"));
-  queue(title, 1, level);
+  queue(title, 1, level, prod);
   return true;
 }
 
@@ -293,6 +307,16 @@ bool pushAlert(const char *title, AlertLevel level) {
   if (settings::get().min_level >= int(AlertLevel::CRITICAL) && level != AlertLevel::CRITICAL) return false;
   queue(title, 1, level);
   return true;
+}
+
+void refreshSoon() { refresh = true; }
+
+int log(LogEntry *out, int max) {
+  portENTER_CRITICAL(&history_lock);
+  const int n = history_n < max ? history_n : max;
+  for (int i = 0; i < n; i++) out[i] = history[(history_at - 1 - i + 20) % 20];
+  portEXIT_CRITICAL(&history_lock);
+  return n;
 }
 
 bool summary(Summary &out) {

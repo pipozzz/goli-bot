@@ -39,6 +39,33 @@ lv_obj_t *box(lv_obj_t *parent, int w, int h, uint32_t color, lv_coord_t radius 
   return o;
 }
 
+// A small canvas to draw a filled shape on (hats, the umbrella), transparent around it
+lv_obj_t *canvas(lv_obj_t *parent, int w, int h) {
+  auto *buf = (lv_color_t *)malloc(LV_CANVAS_BUF_SIZE_TRUE_COLOR_ALPHA(w, h));
+  if (!buf) return nullptr;  // no memory: he goes without
+  lv_obj_t *c = lv_canvas_create(parent);
+  lv_canvas_set_buffer(c, buf, w, h, LV_IMG_CF_TRUE_COLOR_ALPHA);
+  lv_canvas_fill_bg(c, lv_color_black(), LV_OPA_TRANSP);
+  return c;
+}
+
+void polygon(lv_obj_t *c, const lv_point_t *pts, int n, uint32_t color) {
+  lv_draw_rect_dsc_t d;
+  lv_draw_rect_dsc_init(&d);
+  d.bg_color = lv_color_hex(color);
+  d.bg_opa = LV_OPA_COVER;
+  lv_canvas_draw_polygon(c, pts, n, &d);
+}
+
+void disc(lv_obj_t *c, int x, int y, int r, uint32_t color) {
+  lv_draw_rect_dsc_t d;
+  lv_draw_rect_dsc_init(&d);
+  d.bg_color = lv_color_hex(color);
+  d.bg_opa = LV_OPA_COVER;
+  d.radius = LV_RADIUS_CIRCLE;
+  lv_canvas_draw_rect(c, x - r, y - r, 2 * r, 2 * r, &d);
+}
+
 lv_obj_t *line(lv_obj_t *parent, uint32_t color, int width) {
   lv_obj_t *l = lv_line_create(parent);
   lv_obj_remove_style_all(l);
@@ -74,6 +101,27 @@ void Face::begin(lv_obj_t *screen) {
 
   buildEye(eyes_[0], kC - kEyeDx, kEyeY, true);
   buildEye(eyes_[1], kC + kEyeDx, kEyeY, false);
+
+  // Sunglasses over the lenses (shown with SUNGLASSES)
+  for (int s = 0; s < 2; s++) {
+    shades_[s] = box(root_, 2 * kLens + 4, 2 * kLens + 4, 0x0b0c14, LV_RADIUS_CIRCLE);
+    lv_obj_set_style_bg_opa(shades_[s], LV_OPA_90, 0);
+    lv_obj_set_style_border_color(shades_[s], lv_color_hex(0x262a44), 0);
+    lv_obj_set_style_border_width(shades_[s], 3, 0);
+    lv_obj_set_pos(shades_[s], kC + (s ? kEyeDx : -kEyeDx) - kLens - 2, kEyeY - kLens - 2);
+    lv_obj_t *shine = box(shades_[s], 34, 9, 0xffffff, 5);
+    lv_obj_set_style_bg_opa(shine, LV_OPA_40, 0);
+    lv_obj_set_pos(shine, 64, 22);
+    lv_obj_add_flag(shades_[s], LV_OBJ_FLAG_HIDDEN);
+  }
+  // A scarf under his mouth (SCARF), red with cream stripes like his belly card
+  scarf_ = box(root_, 160, 26, kCheek, 13);  // low, below the countdown and the hints
+  lv_obj_set_pos(scarf_, kC - 80, 436);
+  for (int i = 0; i < 4; i++) {
+    lv_obj_t *stripe = box(scarf_, 9, 26, 0xf3e9d2, 0);
+    lv_obj_set_pos(stripe, 26 + i * 34, 0);
+  }
+  lv_obj_add_flag(scarf_, LV_OBJ_FLAG_HIDDEN);
 
   mouth_ = line(root_, kLight, 9);
 
@@ -142,7 +190,7 @@ void Face::begin(lv_obj_t *screen) {
 
   battery_ = lv_label_create(root_);
   lv_obj_set_style_text_font(battery_, &lv_font_montserrat_28, 0);
-  lv_obj_set_pos(battery_, kC + 52, 42);  // top, right of the alert badge
+  lv_obj_set_pos(battery_, kC - 100, 42);  // top, left of the alert badge
   lv_obj_add_flag(battery_, LV_OBJ_FLAG_HIDDEN);
 
   targetFor(mood_, tgt_);
@@ -190,7 +238,9 @@ void Face::blink() { blink_start_ = millis(); }
 void Face::targetFor(Mood m, Shape &s) const {
   s = Shape();
   switch (m) {
-    case Mood::TIRED:  // the classic Goli: "furt dačo"
+    case Mood::TIRED:  // the classic Goli: "furt dačo"; after a rough day even more so
+      s.lid = 0.45f + 0.22f * fatigue_;
+      s.brow_tilt = 1.f + 0.5f * fatigue_;
       s.mouth = -1.f;
       break;
     case Mood::HAPPY:
@@ -265,6 +315,10 @@ void Face::update(uint32_t now) {
     tx = random(-4, 5);
     ty = random(-3, 4);
   }
+  if (glance_until_ && int32_t(glance_until_ - now) > 0) {
+    tx = glance_dir_ * kLook;
+    ty = 2.f;
+  }
   look_x_ = ease(look_x_, constrain(tx, -kLook, kLook), dt, 45.f);
   look_y_ = ease(look_y_, constrain(ty, -kLook, kLook), dt, 45.f);
 
@@ -336,7 +390,124 @@ void Face::apply(uint32_t now) {
   } else {
     lv_obj_add_flag(zzz_, LV_OBJ_FLAG_HIDDEN);
   }
+  if (accessories_ & UMBRELLA) {  // rain falling past the umbrella
+    for (int i = 0; i < 3; i++) {
+      const int y = int((now / 6 + i * 37) % 110);
+      lv_obj_set_pos(drops_[i], 84 + i * 30, 70 + y / 2);
+    }
+  }
   drawMouth(now);
+}
+
+void Face::drawHat(uint8_t kind) {
+  if (hat_ && hat_kind_ == kind) return;
+  if (hat_) {
+    lv_img_dsc_t *img = lv_canvas_get_img(hat_);
+    void *buf = (void *)img->data;
+    lv_obj_del(hat_);
+    free(buf);
+    hat_ = nullptr;
+  }
+  hat_kind_ = kind;
+  if (!kind) return;
+  if (kind == PARTY_HAT) {  // a striped cone with a pompom, at a jaunty angle
+    hat_ = canvas(root_, 90, 104);
+    if (!hat_) return;
+    const lv_point_t cone[] = {{8, 100}, {82, 92}, {52, 16}};
+    polygon(hat_, cone, 3, 0x3fb27f);
+    const lv_point_t band1[] = {{22, 98}, {38, 96}, {58, 54}, {50, 48}};
+    polygon(hat_, band1, 4, 0xf3c94a);
+    const lv_point_t band2[] = {{56, 95}, {70, 93}, {56, 50}, {55, 60}};
+    polygon(hat_, band2, 4, 0xf3c94a);
+    disc(hat_, 52, 14, 11, 0xe5484d);
+    lv_obj_set_pos(hat_, kC + 56, 2);
+  } else {  // Santa: red cap flopping to the side, white brim and pompom
+    hat_ = canvas(root_, 150, 100);
+    if (!hat_) return;
+    const lv_point_t cap[] = {{14, 82}, {136, 82}, {104, 22}, {60, 10}, {20, 40}};
+    polygon(hat_, cap, 5, 0xd8343c);
+    const lv_point_t tip[] = {{20, 40}, {60, 10}, {8, 30}};
+    polygon(hat_, tip, 3, 0xb92a32);
+    lv_draw_rect_dsc_t d;
+    lv_draw_rect_dsc_init(&d);
+    d.bg_color = lv_color_white();
+    d.radius = 12;
+    lv_canvas_draw_rect(hat_, 4, 72, 142, 24, &d);
+    disc(hat_, 12, 30, 12, 0xffffff);
+    lv_obj_set_pos(hat_, kC + 22, 4);
+  }
+  // Alerts and the battery stay in front of whatever he wears
+  for (lv_obj_t *o : {badge_, battery_, title_, status_}) lv_obj_move_foreground(o);
+}
+
+void Face::setAccessories(uint8_t mask) {
+  if (mask == accessories_) return;
+  accessories_ = mask;
+  for (auto *s : shades_) {
+    if (mask & SUNGLASSES) lv_obj_clear_flag(s, LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_add_flag(s, LV_OBJ_FLAG_HIDDEN);
+  }
+  if (mask & SCARF) lv_obj_clear_flag(scarf_, LV_OBJ_FLAG_HIDDEN);
+  else lv_obj_add_flag(scarf_, LV_OBJ_FLAG_HIDDEN);
+
+  if ((mask & UMBRELLA) && !umbrella_) {  // a little blue umbrella up on the left
+    umbrella_ = canvas(root_, 72, 80);
+    if (!umbrella_) return;
+    lv_point_t canopy[19];
+    for (int i = 0; i <= 16; i++) {  // the top half of a circle...
+      const float a = float(M_PI) * (1.f + i / 16.f);
+      canopy[i] = {lv_coord_t(36 + 32 * cosf(a)), lv_coord_t(38 + 32 * sinf(a))};
+    }
+    canopy[17] = {68, 41};  // ...with a flat, slightly dipping edge
+    canopy[18] = {4, 41};
+    polygon(umbrella_, canopy, 19, 0x4f8fe0);
+    for (int k = 0; k < 4; k++) disc(umbrella_, 12 + k * 16, 42, 7, 0x000000);  // scalloped edge
+    lv_draw_line_dsc_t ld;
+    lv_draw_line_dsc_init(&ld);
+    ld.color = lv_color_hex(0xc9cdf0);
+    ld.width = 5;
+    ld.round_start = ld.round_end = 1;
+    const lv_point_t handle[] = {{36, 6}, {36, 64}, {33, 71}, {27, 72}, {23, 67}};
+    lv_canvas_draw_line(umbrella_, handle, 5, &ld);
+    lv_obj_set_pos(umbrella_, 104, 30);  // inside the round glass, above the left brow
+    for (int i = 0; i < 3; i++) {
+      drops_[i] = box(root_, 4, 12, 0x6fb0ff, 2);
+      lv_obj_set_style_bg_opa(drops_[i], LV_OPA_70, 0);
+    }
+    for (lv_obj_t *o : {badge_, battery_, title_, status_}) lv_obj_move_foreground(o);
+  }
+  if (umbrella_) {
+    for (lv_obj_t *o : {umbrella_, drops_[0], drops_[1], drops_[2]}) {
+      if (mask & UMBRELLA) lv_obj_clear_flag(o, LV_OBJ_FLAG_HIDDEN);
+      else lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
+    }
+  }
+  drawHat(mask & SANTA_HAT ? SANTA_HAT : mask & PARTY_HAT ? PARTY_HAT : 0);
+}
+
+void Face::glance(int dir, uint32_t ms) {
+  glance_dir_ = dir;
+  glance_until_ = millis() + ms;
+}
+
+void Face::setMeeting(const char *title, int remaining_s, int total_s) {
+  if (!title) {
+    if (!meeting_on_) return;  // nothing to take down (and focus mode's ring stays)
+    meeting_on_ = false;
+    lv_obj_set_style_arc_color(focus_arc_, lv_color_hex(kBlue), LV_PART_INDICATOR);
+    setFocus(-1, 0);  // focus mode, if on, puts its ring back on the next tick
+    return;
+  }
+  meeting_on_ = true;
+  setFocus(remaining_s, total_s);
+  lv_obj_set_y(focus_txt_, 408);  // below the meeting's name
+  lv_obj_set_style_arc_color(focus_arc_, lv_color_hex(0xf0a64c), LV_PART_INDICATOR);
+  lv_label_set_text_fmt(focus_txt_, "in %d:%02d", remaining_s / 60, remaining_s % 60);
+  if (!unseen_) {
+    if (strcmp(lv_label_get_text(title_), title)) lv_label_set_text(title_, title);
+    lv_obj_clear_flag(title_, LV_OBJ_FLAG_HIDDEN);
+    title_until_ = millis() + 2000;  // refreshed every second while the meeting is near
+  }
 }
 
 void Face::showAlert(const char *title, int unseen, AlertLevel level) {
@@ -357,6 +528,12 @@ void Face::clearAlert() {
   title_until_ = 0;
   lv_obj_add_flag(badge_, LV_OBJ_FLAG_HIDDEN);
   lv_obj_add_flag(title_, LV_OBJ_FLAG_HIDDEN);
+}
+
+void Face::showTitle(const char *text, uint32_t ms) {
+  lv_label_set_text(title_, text);
+  lv_obj_clear_flag(title_, LV_OBJ_FLAG_HIDDEN);
+  title_until_ = millis() + ms;
 }
 
 void Face::showStatus(const char *text) {
@@ -393,6 +570,7 @@ void Face::setFocus(int remaining_s, int total_s) {
     return;
   }
   lv_arc_set_value(focus_arc_, int16_t(1000L * remaining_s / total_s));
+  lv_obj_set_y(focus_txt_, 392);
   lv_label_set_text_fmt(focus_txt_, "%d:%02d", remaining_s / 60, remaining_s % 60);
   lv_obj_clear_flag(focus_arc_, LV_OBJ_FLAG_HIDDEN);
   lv_obj_clear_flag(focus_txt_, LV_OBJ_FLAG_HIDDEN);

@@ -6,6 +6,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include "bot.h"
 #include "config.h"
@@ -26,6 +27,11 @@ bool flat = false, noisy = false;
 uint32_t shake_until = 0, bump_at = 0;
 const char *hint_text = nullptr;
 char hint_buf[64];
+Sound sounds[3] = {Sound::CHIRP, Sound::DING, Sound::ALARM};  // by AlertLevel: good, info, critical
+bool talk = false, buddy_on = true, at_desk = false, bday = false;
+int break_min = 50;
+uint8_t weather_mask = 0;
+char today[6] = "";
 
 void flush(lv_disp_drv_t *drv, const lv_area_t *a, lv_color_t *px) {
   for (int y = a->y1; y <= a->y2; y++) {
@@ -49,6 +55,19 @@ EM_JS(void, js_stop, (), { if (Module.onStopSound) Module.onStopSound(); });
 int rotation() { return int(lv_disp_get_rotation(disp)); }
 void rotate() { lv_disp_set_rotation(disp, lv_disp_rot_t((rotation() + 1) % 4)); }
 const char *hint() { return hint_text; }
+
+Sound alertSound(AlertLevel level) { return sounds[int(level)]; }
+bool talks() { return talk; }
+bool buddy() { return buddy_on; }
+int breakMin() { return break_min; }
+const char *birthday() {
+  if (!bday) return nullptr;
+  const time_t t = time(nullptr);
+  struct tm lt;
+  localtime_r(&t, &lt);
+  snprintf(today, sizeof today, "%02d-%02d", lt.tm_mon + 1, lt.tm_mday);
+  return today;
+}
 
 void overview(Screens &s, uint32_t) { s.setOverview("acme", 42, 2, 7, 1, 0, "simulated"); }
 
@@ -83,6 +102,11 @@ void frame() {
   if (finger) bot::touch(fx, fy, now);  // the panel keeps reporting while a finger is down
   feedMotion(now);
   bot::loud(noisy);
+  static uint32_t next_presence = 0;
+  if (at_desk && int32_t(now - next_presence) >= 0) {
+    next_presence = now + 1000;
+    bot::presence(now);
+  }
   bot::update(now);
   lv_timer_handler();
 }
@@ -130,9 +154,39 @@ EMSCRIPTEN_KEEPALIVE void sim_shake() { shake_until = uint32_t(emscripten_get_no
 EMSCRIPTEN_KEEPALIVE void sim_bump() { bump_at = uint32_t(emscripten_get_now()); }
 EMSCRIPTEN_KEEPALIVE void sim_clap() { bot::clap(uint32_t(emscripten_get_now())); }
 EMSCRIPTEN_KEEPALIVE void sim_noise(int on) { noisy = on; }
-EMSCRIPTEN_KEEPALIVE void sim_alert(int level, const char *title) {
-  bot::alert(title, 1, AlertLevel(level), false, uint32_t(emscripten_get_now()));
+EMSCRIPTEN_KEEPALIVE void sim_alert(int level, const char *title, int prod_deploy) {
+  bot::alert(title, 1, AlertLevel(level), false, uint32_t(emscripten_get_now()), prod_deploy);
 }
+EMSCRIPTEN_KEEPALIVE void sim_sound(int level, const char *name) {
+  sounds[level] = soundByName(name, sounds[level]);
+}
+EMSCRIPTEN_KEEPALIVE void sim_play(const char *name) { sound::play(soundByName(name, Sound::NONE)); }
+EMSCRIPTEN_KEEPALIVE int sim_sound_count() { return kSoundCount; }
+EMSCRIPTEN_KEEPALIVE const char *sim_sound_name(int i) { return kSoundNames[i].name; }
+EMSCRIPTEN_KEEPALIVE const char *sim_sound_label(int i) { return kSoundNames[i].label; }
+EMSCRIPTEN_KEEPALIVE void sim_talk(int on) { talk = on; }
+EMSCRIPTEN_KEEPALIVE void sim_meeting(const char *title, int in_s) {
+  bot::Meeting m;
+  snprintf(m.title, sizeof m.title, "%s", title);
+  m.start = int64_t(time(nullptr)) + in_s;
+  bot::meetings(&m, 1);
+}
+EMSCRIPTEN_KEEPALIVE void sim_weather(int mask) {
+  weather_mask = uint8_t(mask);
+  bot::weather(weather_mask);
+}
+EMSCRIPTEN_KEEPALIVE void sim_birthday(int on) {
+  bday = on;
+  bot::weather(weather_mask);  // dresses him again, party hat included
+}
+EMSCRIPTEN_KEEPALIVE void sim_desk(int on, int minutes) {
+  at_desk = on;
+  break_min = minutes;
+}
+EMSCRIPTEN_KEEPALIVE void sim_knock() { bot::knock(uint32_t(emscripten_get_now())); }
+EMSCRIPTEN_KEEPALIVE void sim_team(int dir) { bot::teamAlert(dir, uint32_t(emscripten_get_now())); }
+EMSCRIPTEN_KEEPALIVE void sim_yesterday(int alerts) { bot::yesterday(alerts, 0); }
+EMSCRIPTEN_KEEPALIVE void sim_goliash(int on) { bot::pages(on); }
 EMSCRIPTEN_KEEPALIVE void sim_power(int percent, int charging, int on_battery) {
   bot::power(percent, charging, on_battery);
 }
@@ -168,7 +222,13 @@ int main() {
   hooks.hint = hint;
   hooks.overview = overview;
   hooks.status = status;
+  hooks.alertSound = alertSound;
+  hooks.talks = talks;
+  hooks.buddy = buddy;
+  hooks.breakMin = breakMin;
+  hooks.birthday = birthday;
   bot::begin(lv_scr_act(), hooks, uint32_t(emscripten_get_now()));
+  bot::meetings(nullptr, 0);
   emscripten_set_main_loop(frame, 0, false);
   return 0;
 }

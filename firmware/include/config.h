@@ -70,6 +70,7 @@
 #define SETUP_TAPS 5
 #define DEMO_TAPS 10
 #define FOCUS_MIN 25            // a pomodoro
+#define MEETING_REMIND_MIN 10   // the amber ring starts this long before a meeting
 #define PAGE_TIMEOUT_MS 30000   // swipe pages go back to the face after this long untouched
 // Setup mode gives up after this long when Goli already has a working configuration.
 #define SETUP_TIMEOUT_MS (10UL * 60 * 1000)

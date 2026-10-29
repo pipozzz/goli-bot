@@ -23,6 +23,21 @@ struct Settings {
 
   String api_key;           // for POST /notify and Goliash webhook signatures; made on first start
   bool listen = true;       // microphones: claps and noise (audio never leaves Goli)
+
+  // Sounds: names from kSoundNames, per alert level
+  String snd_info = "ding", snd_crit = "ding-ding", snd_good = "chirp";
+  bool talk = false;        // Goli's own voice for boops and cheers
+
+  // Sources besides Goliash (all optional)
+  String ics;               // calendar: a secret iCal address
+  String lat, lon;          // weather (Open-Meteo), empty = off
+  String gh_token;          // GitHub: review requests, failed CI on your PRs
+  String watch;             // URLs to keep an eye on, one per line
+  String team_left, team_right;  // hostnames of the Golis next to this one
+
+  bool buddy = true;        // good morning, stretch breaks, Friday
+  int break_min = 50;       // minutes at the desk before a stretch break (0 = never)
+  String birthday;          // "MM-DD"
 };
 
 namespace settings {
@@ -33,6 +48,14 @@ Settings &get();
 bool hasWifi();
 bool hasGoliash();
 void newKey();   // replaces the API key (call save() after)
+
+// Settings change from the web page (its own task) while the network task reads them: change
+// them under lock(), and let other tasks read through copy().
+void lock();
+void unlock();
+Settings copy();
+bool tryCopy(Settings &out);  // without waiting (the main loop): false when someone holds the lock
+uint32_t changes();           // grows with every save()
 
 void requestSetup();   // reboot into setup mode
 bool takeSetupRequest();  // true once after such a reboot

@@ -68,6 +68,8 @@ int main() {
       {Mood::DROWSY, "07_drowsy", false},    {Mood::ASLEEP, "08_asleep", false},   {Mood::SURPRISED, "09_goliash", false},
       {Mood::ALARMED, "10_critical", false}, {Mood::HAPPY, "11_good news", false}, {Mood::TIRED, "12_low battery", false},
       {Mood::FOCUSED, "13_focus", false},    {Mood::WINCE, "14_too loud", false},  {Mood::ASLEEP, "15_night clock", false},
+      {Mood::TIRED, "16_rain coming", false}, {Mood::HAPPY, "17_sunny", false},    {Mood::TIRED, "18_meeting soon", false},
+      {Mood::HAPPY, "19_birthday", false},   {Mood::WINK, "20_december", false},
   };
   for (auto &s : shots) {
     if (!strcmp(s.name, "09_goliash")) face.showAlert("checkout 2.4.1", 1, AlertLevel::INFO);
@@ -86,6 +88,17 @@ int main() {
     }
     if (!strcmp(s.name, "14_too loud")) face.setFocus(-1, 0);
     if (!strcmp(s.name, "15_night clock")) face.setClock("23:41");
+    if (!strcmp(s.name, "16_rain coming")) face.setAccessories(UMBRELLA | SCARF);
+    if (!strcmp(s.name, "17_sunny")) face.setAccessories(SUNGLASSES);
+    if (!strcmp(s.name, "18_meeting soon")) {
+      face.setAccessories(0);
+      face.setMeeting("stand-up", 4 * 60 + 12, 10 * 60);
+    }
+    if (!strcmp(s.name, "19_birthday")) {
+      face.setMeeting(nullptr, 0, 0);
+      face.setAccessories(PARTY_HAT);
+    }
+    if (!strcmp(s.name, "20_december")) face.setAccessories(SANTA_HAT | SCARF);
     face.setPetting(s.pet);
     face.setMood(s.m);
     run(face, 1200);
@@ -100,7 +113,9 @@ int main() {
   screens.setOverview("acme", 42, 2, 7, 1, 0, "3 min ago");
   screens.setClock("09:41", "Wed 28 Oct");
   screens.setStatus("v0.2.0\n192.168.1.42\n-58 dBm\nGoliash: ok\nbattery 87%");
-  const char *pages[] = {"", "page_1_overview", "page_2_clock", "page_3_status"};
+  screens.setAgenda("10:00 stand-up\n13:30 design review\n16:00 1:1 with Ana");
+  screens.setToday("12 alerts, 2 critical\n3 good news\npetted 4x, booped 9x\ncalm yesterday");
+  const char *pages[] = {"", "page_1_overview", "page_2_agenda", "page_3_clock", "page_4_today", "page_5_status"};
   for (int p = 1; p < Screens::COUNT; p++) {
     screens.show(p);
     lv_obj_invalidate(lv_scr_act());

@@ -9,6 +9,11 @@ enum class Mood { TIRED, HAPPY, SURPRISED, DIZZY, DROWSY, ASLEEP, WINK, ALARMED,
 // or something is broken or vulnerable (CRITICAL).
 enum class AlertLevel : uint8_t { GOOD, INFO, CRITICAL };
 
+// Things Goli wears: from the weather, the season and your birthday (bit mask)
+enum Accessory : uint8_t {
+  SUNGLASSES = 1, UMBRELLA = 2, SCARF = 4, PARTY_HAT = 8, SANTA_HAT = 16,
+};
+
 // Goli's animated face, drawn with plain LVGL objects on a 466×466 screen.
 // Call update() every frame; it eases every feature toward the current mood.
 class Face {
@@ -30,12 +35,18 @@ class Face {
   void showAlert(const char *title, int unseen, AlertLevel level = AlertLevel::INFO);
   void clearAlert();
   void showStatus(const char *text);  // small grey hint at the bottom; nullptr hides it
+  void showTitle(const char *text, uint32_t ms);  // big white line under the mouth for a while
   // Battery icon at the top, beside the badge: shown while charging or when low; percent < 0 hides it.
   void showBattery(int percent, bool charging);
   // Night clock under his closed eyes while he sleeps ("23:41"); nullptr hides it.
   void setClock(const char *hhmm);
   // Focus mode: a ring around the screen that shrinks, and the minutes left; remaining_s < 0 hides it.
   void setFocus(int remaining_s, int total_s);
+  // A meeting coming up: amber ring, its name and "in 4:59"; title nullptr hides it
+  void setMeeting(const char *title, int remaining_s, int total_s);
+  void setAccessories(uint8_t mask);
+  void setFatigue(float f) { fatigue_ = f; }  // 0 fresh .. 1 exhausted: how heavy his resting lids are
+  void glance(int dir, uint32_t ms);          // look hard to one side: -1 left, +1 right
   int unseen() const { return unseen_; }
 
  private:
@@ -65,7 +76,13 @@ class Face {
   lv_obj_t *bridge_ = nullptr, *mouth_ = nullptr, *cheeks_[2] = {}, *zzz_ = nullptr;
   lv_obj_t *badge_ = nullptr, *badge_txt_ = nullptr, *title_ = nullptr, *status_ = nullptr, *battery_ = nullptr;
   lv_obj_t *clock_ = nullptr, *focus_arc_ = nullptr, *focus_txt_ = nullptr;
-  bool clock_on_ = false;
+  bool clock_on_ = false, meeting_on_ = false;
+  lv_obj_t *shades_[2] = {}, *umbrella_ = nullptr, *scarf_ = nullptr, *hat_ = nullptr, *drops_[3] = {};
+  uint8_t hat_kind_ = 0, accessories_ = 0;
+  float fatigue_ = 0.f;
+  int glance_dir_ = 0;
+  uint32_t glance_until_ = 0;
+  void drawHat(uint8_t kind);
   int unseen_ = 0;
   AlertLevel level_ = AlertLevel::GOOD;
   uint32_t title_until_ = 0;

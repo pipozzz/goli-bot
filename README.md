@@ -80,7 +80,7 @@ GFX Library for Arduino, SensorLib for touch and IMU, Espressif's ES8311 codec d
 | Input | Goli |
 |---|---|
 | nothing happening | tired: heavy lids, worried brows, wavy mouth; blinks and glances around |
-| new Goliash notification | **ding** of a desk bell, surprised face, count badge, title scrolling under the mouth |
+| new alert (Goliash, GitHub, a script...) | **ding** of a desk bell, surprised face, count badge, title scrolling under the mouth |
 | something critical (agent gone quiet, vulnerability, production drift...) | **ding-ding**, alarmed face, red badge |
 | good news (an agent is back, a drift was resolved) | chirp, happy face, green badge |
 | tap the face | boop: surprised, then happy with blushing cheeks; also marks alerts as seen |
@@ -88,7 +88,12 @@ GFX Library for Arduino, SensorLib for touch and IMU, Espressif's ES8311 codec d
 | 3 quick taps | focus mode on / off: 25 minutes, a ring counts down, only critical alerts ring; happy when it's over |
 | 5 quick taps | setup mode (QR code on the screen) |
 | 10 quick taps | demo mode for a booth (any tap stops it) |
-| swipe across the face | Goliash overview → big clock → Goli's status → back to the face |
+| swipe across the face | Goliash overview → today's meetings → big clock → Goli's day → status |
+| knock twice on the desk | snooze: alerts stay silent for 10 minutes |
+| a meeting in 10 minutes | an amber ring counts down, its name under his mouth; a ding when it starts |
+| rain / sun / frost coming | umbrella / sunglasses / scarf |
+| your birthday, December | party hat, Santa hat |
+| a Goli next to him rings | he looks that way |
 | finger resting on / stroking the face | petting: blissful closed eyes |
 | clap | marks alerts as seen (wink), or just startles him |
 | loud noise for a while | winces |
@@ -99,6 +104,7 @@ GFX Library for Arduino, SensorLib for touch and IMU, Espressif's ES8311 codec d
 | hold a finger still for 3 s | turns the face by 90° (saved): use it once after assembly |
 | finger on the face while he starts | self-test screen (see *Checking the assembly*) |
 | battery low, or charging | battery icon next to the bell |
+| production deploy on a Friday after 15:00 | winces: "on a Friday?!" |
 
 The whole face drifts by a few pixels over minutes so the AMOLED does not burn in.
 
@@ -107,8 +113,10 @@ The whole face drifts by a few pixels over minutes so the AMOLED does not burn i
 ![Swipe pages](docs/pages.png)
 
 Swipe across his face for **Goliash at a glance** (drifting services, updates waiting, updates that fix
-exploited vulnerabilities, stale targets; from `GET /api/v1/summary` every 5 minutes), a **big clock**, and
-**Goli's status** (version, IP, Wi-Fi, Goliash connection, battery). A tap or 30 s goes back to the face.
+exploited vulnerabilities, stale targets; from `GET /api/v1/summary` every 5 minutes; only when Goliash is
+set up), **today's meetings**, a **big clock**, **Goli's day** (alerts, good news, how often you petted
+him, and whether yesterday was rough) and **Goli's status** (version, IP, Wi-Fi, connections, battery,
+weather). A tap or 30 s goes back to the face.
 
 The time comes from NTP and is kept by the board's RTC, so the clock is right after a restart even
 before Wi-Fi is up.
@@ -117,7 +125,20 @@ before Wi-Fi is up.
 
 The board has two microphones. Goli only measures how loud it is, on the device; nothing is recorded or
 sent, and he ignores his own sounds. A clap marks alerts as seen; a noisy room makes him wince.
-Turn it off on the setup page.
+Turn it off on the web page.
+
+### His day
+
+- **Mood follows yesterday:** after a day with many alerts (critical ones count three times) his resting
+  lids are heavier the next morning. At midnight today becomes yesterday, and it survives a restart.
+- **Desk buddy** (on by default): the first time someone is at the desk in the morning he says good
+  morning (happy birthday on your birthday); after 50 minutes at the desk he suggests a stretch and some
+  water; on Friday after 17:00 he tells you to go home. "At the desk" means a touch, or voices and typing
+  heard by the microphones in the last few minutes.
+- **Knock knock:** two quick knocks on the desk (felt by the IMU) snooze alerts for 10 minutes. The
+  threshold is a guess until it meets a real desk.
+- **A team of Golis:** Golis on the same network find each other. On each one's web page, pick who sits
+  on its left and right; when one rings, its neighbours look its way.
 
 ### Demo mode
 
@@ -157,7 +178,7 @@ The page always installs the latest [release](https://github.com/pipozzz/goli-bo
 Once Goli is on your Wi-Fi he updates himself: a few minutes after starting and then once a day he reads
 `ota.json` from the installer site, and if a different release is out he downloads it, says *updating
 myself...* and restarts. The download only comes from a server with a trusted certificate (the roots are in
-`src/ota_roots.h`), and the ESP32 checks the image before it boots it. Turn it off on the setup page.
+`src/tls_roots.h`), and the ESP32 checks the image before it boots it. Turn it off on the web page.
 Builds you make yourself are versioned `dev` and never update themselves.
 
 Safari and phones can't flash (no Web Serial). Every release also has `goli-firmware.bin`, a merged image for
@@ -199,10 +220,21 @@ pio run -e snapshot && .pio/build/snapshot/program && python3 tools/sheet.py
 
 ### Sounds
 
-Goli synthesizes all his sounds (no audio files): a brass desk bell for alerts (a few inharmonic partials
-with different decays), rung twice and a tone lower for critical ones, plus boop, chirp, wobble and yawn.
-Hear them in `docs/sounds/` (re-render with `python3 firmware/tools/sounds_wav.py`). The speaker amp is only on while a sound plays.
-During quiet hours (22:00 to 07:00 by default, set on the setup page) alerts are silent and only the badge appears.
+Goli synthesizes all his sounds (no audio files). Pick one for each kind of alert on the web page:
+
+| Sound | What it is |
+|---|---|
+| Desk bell, Desk bell twice | a brass desk bell (inharmonic partials with different decays); twice and a tone lower for critical |
+| Ship's bell | lower and longer, struck twice like on a ship |
+| Marimba, 8-bit, Coin, Water drop | a wooden arpeggio, a chiptune arpeggio, a game coin, a drop |
+| Whisper | a soft "pff" and a tick, for an office |
+| Goli: "hm?", "ou!", "ehh...", "ya-ay!" | his own voice: formant synthesis, a buzz shaped into vowels, nothing recorded |
+| Your own sound | any audio file, uploaded on the web page (first 3 seconds, converted in the browser) |
+
+With **Goli talks** on, he also says "hm?" when booped and "ya-ay!" when happy. Hear everything in
+`docs/sounds/` (re-render: the command at the top of `firmware/tools/render_sounds.cpp`) or in the
+simulator. The speaker amp is only on while a sound plays. During quiet hours (22:00 to 07:00 by default)
+alerts are silent and only the badge appears.
 
 ### Setting Goli up (from a phone or a PC)
 
@@ -226,9 +258,41 @@ If the Wi-Fi or the token stops working, a hint appears at the bottom of his fac
 Why not Bluetooth: setting a device up over Bluetooth from a web page (Web Bluetooth) doesn't work on iPhone.
 The hotspot works on every phone and computer without an app.
 
+### Managing Goli from a browser
+
+Once Goli is on your Wi-Fi, open **`http://goli-xxxx.local/`** (the status page shows the name and IP).
+The first time, click *Show me a code*: Goli shows a 6-digit code on his face, and typing it pairs the
+browser (5 wrong tries and the code is gone, and every further round makes you wait twice as long). Only someone standing next to Goli can pair. From then on
+everything is there:
+
+- **Home:** connections, today's meetings, the latest alerts; boop him, start focus or the demo, test alerts.
+- **Sounds:** a sound per kind of alert with a play button, Goli talks, volume, quiet hours, your own sound.
+- **Alerts:** Goliash (optional), which alerts ring, GitHub, URLs to keep an eye on, the key for scripts.
+- **Day:** calendar, weather, desk buddy, birthday, the microphones, the team.
+- **Goli:** Wi-Fi, updates, restart, setup mode, forget this browser.
+
+Secrets (Wi-Fi password, tokens, the calendar address) are never shown back. The setup hotspot (tap 5
+times) still works for the first setup or a new Wi-Fi.
+
+### Sources
+
+Everything is optional; Goli is happy with none of them, and Goliash is just one of them.
+
+| Source | What Goli does |
+|---|---|
+| **Goliash** | notifications by severity, the overview page (see below) |
+| **Calendar**: any secret iCal address (Google, Outlook, iCloud, Nextcloud) | today's meetings on a page, an amber countdown ring 10 minutes before each, a ding when it starts. Daily and weekly repeats (with skipped dates) are expanded; monthly ones and moved single instances are not. Times are taken in Goli's time zone. Checked every 10 minutes. |
+| **Weather**: a location (*Use my location* on the web page) | from [Open-Meteo](https://open-meteo.com/) every 30 minutes: an umbrella with rain falling when rain is likely in the next 8 hours, sunglasses on a sunny 20 °C+ day, a scarf at 2 °C or snow |
+| **GitHub**: a classic token with the `notifications` scope | review requests and mentions ring; failed CI on your pull requests and security alerts ring as critical. Checked every minute. |
+| **Keep an eye on**: up to 6 URLs | fetched every minute; two failures in a row is critical ("shop.example.com is down"), and he's happy when it's back |
+| **Anything else**: `POST /notify` | see *Ring Goli from anything* |
+
+HTTPS to these services is checked against the Mozilla root certificates built into ESP-IDF; the watched
+URLs only check that a site answers, so their certificates are not checked.
+
 ### Goliash alerts
 
-Create a read-only token for the setup page: `goliash token create -name goli-bot -role viewer`
+Create a read-only token for the web page (or the setup page): `goliash token create -name goli-bot -role viewer`
 (or *Settings → Users → API tokens*). Make sure a notify rule sends what you care about; any channel counts.
 To keep alerts inside Goliash only, use the *In Goliash* channel.
 
@@ -237,13 +301,13 @@ shows. Each message newer than the last one he saw rings once. The first poll af
 where things stand, so he doesn't ring for old news. If you leave the certificate field empty, the
 Goliash certificate is not checked.
 
-**Which alerts ring** is up to you on the setup page: everything or only critical ones, only production,
+**Which alerts ring** is up to you on the web page: everything or only critical ones, only production,
 only some services (comma-separated). Items without an environment or service, like an agent going
 quiet, always pass the production and service filters.
 
 **Instant alerts with a webhook:** if your Goliash can reach Goli on your network, add a *Webhook*
 channel in Goliash with the URL `http://goli-xxxx.local/notify` (or his IP; the status page shows both)
-and Goli's key as the secret, point a notify rule at it, and tick *Goliash sends alerts to me* on the setup page. Goli checks the
+and Goli's key as the secret, point a notify rule at it, and tick *Goliash sends alerts to me* on the web page. Goli checks the
 `X-Goliash-Signature` on every request and stops polling for notifications. He still asks for the summary
 every 5 minutes, which also tells him the token works. (Goliash in Docker may not resolve `.local`
 names: use the IP then, and give Goli a fixed address in your router.)
@@ -251,7 +315,7 @@ names: use the IP then, and give Goli a fixed address in your router.)
 ### Ring Goli from anything
 
 Goli listens on your network: `POST /notify` with a JSON `title` and an optional `level`
-(`info`, `critical` or `good`), and his key from the setup page.
+(`info`, `critical` or `good`), and his key from the web page (Alerts tab).
 
 ```bash
 curl -H "Authorization: Bearer <key>" -H "Content-Type: application/json" \

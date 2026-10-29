@@ -2,7 +2,10 @@
 
 #include <Arduino.h>
 #include <ESP_I2S.h>
+#include <LittleFS.h>
 #include <math.h>
+
+#include <algorithm>
 
 #include "config.h"
 #include "es8311.h"
@@ -22,6 +25,28 @@ int volume = 0;
 volatile bool stopping = false;
 volatile uint32_t quiet_since = 0;  // millis() when the last sound ended; 0 = playing
 
+// The custom sound, in PSRAM; swapped only while nothing plays
+const char *kCustomPath = "/custom.pcm";
+const size_t kCustomMax = synth::kRate * 3;
+int16_t *custom = nullptr;
+volatile size_t custom_n = 0;
+
+bool loadCustom() {
+  File f = LittleFS.open(kCustomPath, "r");
+  if (!f) return false;
+  const size_t n = std::min(kCustomMax, size_t(f.size()) / 2);
+  if (!custom) custom = (int16_t *)ps_malloc(kCustomMax * sizeof(int16_t));
+  if (!custom) return false;
+  custom_n = f.read((uint8_t *)custom, n * 2) / 2;
+  return custom_n > 0;
+}
+
+// Next chunk of the custom sound
+bool renderCustom(int pos, int len, int16_t *out) {
+  for (int i = 0; i < len; i++) out[i] = size_t(pos + i) < custom_n ? custom[pos + i] : 0;
+  return size_t(pos + len) < custom_n;
+}
+
 void task(void *) {
   int16_t mono[kChunk];
   int16_t stereo[kChunk * 2];
@@ -37,7 +62,8 @@ void task(void *) {
       digitalWrite(AUDIO_PA_EN, HIGH);  // speaker amplifier on only while playing (no hiss)
     }
     if (pos < 0) continue;
-    const bool more = !stopping && synth::render(cur, pos, kChunk, mono);
+    const bool more = !stopping && (cur == Sound::CUSTOM ? renderCustom(pos, kChunk, mono)
+                                                         : synth::render(cur, pos, kChunk, mono));
     if (stopping) memset(mono, 0, sizeof mono);
     for (int i = 0; i < kChunk; i++) stereo[2 * i] = stereo[2 * i + 1] = mono[i];
     i2s.write((uint8_t *)stereo, sizeof stereo);
@@ -58,6 +84,8 @@ void task(void *) {
 bool begin() {
   pinMode(AUDIO_PA_EN, OUTPUT);
   digitalWrite(AUDIO_PA_EN, LOW);
+
+  if (LittleFS.begin(true)) loadCustom();  // the "spiffs" partition of default_16MB.csv
 
   i2s.setPins(I2S_BCLK, I2S_WS, I2S_DOUT, I2S_DIN, I2S_MCLK);
   if (!i2s.begin(I2S_MODE_STD, kRate, I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_STEREO, I2S_STD_SLOT_BOTH)) return false;
@@ -84,12 +112,25 @@ bool begin() {
 }
 
 void play(Sound s) {
-  if (!queue || volume == 0) return;
+  if (!queue || volume == 0 || s == Sound::NONE || (s == Sound::CUSTOM && !custom_n)) return;
   xQueueReset(queue);
   xQueueSend(queue, &s, 0);
 }
 
 void stop() { stopping = true; }
+
+bool setCustom(const int16_t *pcm, size_t samples) {
+  samples = std::min(samples, kCustomMax);
+  File f = LittleFS.open(kCustomPath, "w");
+  if (!f) return false;
+  const bool ok = f.write((const uint8_t *)pcm, samples * 2) == samples * 2;
+  f.close();
+  stop();
+  for (int i = 0; i < 40 && quiet_since == 0; i++) vTaskDelay(pdMS_TO_TICKS(10));  // let the task let go of it
+  return ok && loadCustom();
+}
+
+size_t customSamples() { return custom_n; }
 
 bool playing() { return quiet_since == 0 || millis() - quiet_since < 300; }
 

@@ -23,6 +23,7 @@
 #include "TouchDrvCSTXXX.hpp"
 #include "api.h"
 #include "bot.h"
+#include "calendar.h"
 #include "config.h"
 #include "goliash.h"
 #include "improv.h"
@@ -35,6 +36,9 @@
 #include "settings.h"
 #include "setup.h"
 #include "sound.h"
+#include "team.h"
+#include "watch.h"
+#include "weather.h"
 
 namespace {
 
@@ -112,7 +116,48 @@ void statusText(char *out, size_t cap) {
     snprintf(wifi, sizeof wifi, "no Wi-Fi\n%s", api::hostname());
   if (battery.battery) snprintf(bat, sizeof bat, "battery %d%%%s", battery.percent, battery.charging ? " +" : "");
   else snprintf(bat, sizeof bat, "USB power");
-  snprintf(out, cap, "%s\n%s\nGoliash: %s\n%s", GOLI_VERSION, wifi, states[int(goliash::status())], bat);
+  char extra[48] = "";
+  if (watch::down()) snprintf(extra, sizeof extra, "\n%d site(s) down", watch::down());
+  else {
+    char w[40];
+    weather::summary(w, sizeof w);
+    if (*w) snprintf(extra, sizeof extra, "\n%s", w);
+  }
+  snprintf(out, cap, "%s\n%s\nGoliash: %s\n%s%s", GOLI_VERSION, wifi,
+           settings::hasGoliash() ? states[int(goliash::status())] : "not used", bat, extra);
+}
+
+// The main loop's own copy of the settings: the web page changes them from another task
+Settings cfg;
+uint32_t cfg_version = UINT32_MAX;
+
+void refreshSettings() {
+  if (settings::changes() != cfg_version && settings::tryCopy(cfg)) cfg_version = settings::changes();
+}
+
+Sound alertSound(AlertLevel level) {
+  static const Sound fallback[] = {Sound::CHIRP, Sound::DING, Sound::ALARM};
+  const String &name = level == AlertLevel::CRITICAL ? cfg.snd_crit : level == AlertLevel::GOOD ? cfg.snd_good : cfg.snd_info;
+  const Sound s = soundByName(name.c_str(), fallback[int(level)]);
+  return s == Sound::CUSTOM && !sound::customSamples() ? fallback[int(level)] : s;  // nothing uploaded yet
+}
+bool talks() { return cfg.talk; }
+bool buddy() { return cfg.buddy; }
+int breakMin() { return cfg.break_min; }
+const char *birthday() { return cfg.birthday.length() == 5 ? cfg.birthday.c_str() : nullptr; }
+void alerted(AlertLevel level) { team::rang(int(level)); }
+
+// YYYYMMDD of a time, local
+int dateOf(time_t t) {
+  struct tm lt;
+  localtime_r(&t, &lt);
+  return (lt.tm_year + 1900) * 10000 + (lt.tm_mon + 1) * 100 + lt.tm_mday;
+}
+
+void dayOver(int alerts, int critical) {  // remembered for tomorrow's mood, also across a restart
+  prefs.putInt("ya", alerts);
+  prefs.putInt("yc", critical);
+  prefs.putInt("yfor", dateOf(time(nullptr)));  // the day it is "yesterday" for
 }
 
 // ---- sensors -> bot
@@ -133,7 +178,37 @@ void pollImu(uint32_t now) {
 
 void pollGoliash(uint32_t now) {
   goliash::Alert a;
-  if (goliash::takeAlert(a)) bot::alert(a.title, a.count, a.level, goliash::quietHours(), now);
+  if (goliash::takeAlert(a)) bot::alert(a.title, a.count, a.level, goliash::quietHours(), now, a.prod_deploy);
+}
+
+// What the web page asked for that has to happen here (screen, I2C)
+void pollWeb(uint32_t now) {
+  api::Request r;
+  while (api::take(r)) {
+    switch (r.cmd) {
+      case api::Command::POKE: bot::poke(now); break;
+      case api::Command::FOCUS: bot::focus(now); break;
+      case api::Command::DEMO: bot::demo(now); break;
+      case api::Command::VOLUME: sound::setVolume(r.arg); break;
+      case api::Command::PAIR_CODE: bot::pairCode(r.arg, now); break;
+      case api::Command::SETUP: settings::requestSetup(); break;
+    }
+  }
+}
+
+// Once a second: what the other sources found, the team, someone at the desk
+void pollSources(uint32_t now) {
+  static uint32_t next = 0;
+  if (int32_t(now - next) < 0) return;
+  next = now + 1000;
+  bot::Meeting m[6];
+  bot::meetings(m, calendar::upcoming(m, 6));
+  static uint8_t wear = 0xff;
+  if (weather::accessories() != wear) bot::weather(wear = weather::accessories());
+  int dir;
+  if (team::takeGlance(dir)) bot::teamAlert(dir, now);
+  if (mic_ok && mic::lastSoundMs() && now - mic::lastSoundMs() < 5000) bot::presence(now);
+  bot::pages(settings::hasGoliash());
 }
 
 void pollMic(uint32_t now) {
@@ -306,6 +381,7 @@ void setup() {
   if (want_selftest) selfTest();      // never returns
   if (want_setup) setup_mode::run();  // never returns
 
+  refreshSettings();
   bot::Hooks hooks;
   hooks.brightness = setBrightness;
   hooks.rotation = rotation;
@@ -314,7 +390,17 @@ void setup() {
   hooks.hint = hint;
   hooks.overview = overview;
   hooks.status = statusText;
+  hooks.alertSound = alertSound;
+  hooks.talks = talks;
+  hooks.buddy = buddy;
+  hooks.breakMin = breakMin;
+  hooks.birthday = birthday;
+  hooks.alerted = alerted;
+  hooks.dayOver = dayOver;
+  hooks.quietHours = goliash::quietHours;
   bot::begin(lv_scr_act(), hooks, millis());
+  const time_t t = time(nullptr);  // from the RTC already
+  if (t > 1700000000 && prefs.getInt("yfor", 0) == dateOf(t)) bot::yesterday(prefs.getInt("ya"), prefs.getInt("yc"));
   api::begin();                     // before Wi-Fi starts: sets the hostname
   goliash::begin();
   improv::begin(nullptr, nullptr);  // the web installer can change the Wi-Fi
@@ -331,6 +417,9 @@ void loop() {
   pollImu(now);
   pollGoliash(now);
   pollMic(now);
+  refreshSettings();
+  pollSources(now);
+  pollWeb(now);
   pollPower(now);
   improv::loop();
   rtc::maintain(now);

@@ -63,14 +63,9 @@ void Screens::begin(lv_obj_t *screen) {
   date_ = label(c, &lv_font_montserrat_28, kLight, 300);
   lv_obj_set_pos(date_, kC - 150, 290);
 
-  // How Goli is doing
-  lv_obj_t *st = pages_[STATUS] = makePage(screen);
-  lv_obj_t *head = label(st, &lv_font_montserrat_28, kLight, 300);
-  lv_obj_set_pos(head, kC - 150, 70);
-  lv_label_set_text(head, "Goli");
-  status_ = label(st, &lv_font_montserrat_28, 0xffffff, 340);
-  lv_obj_set_style_text_line_space(status_, 8, 0);
-  lv_obj_set_pos(status_, kC - 170, 124);
+  agenda_ = textPage(screen, AGENDA, "Today");
+  today_ = textPage(screen, TODAY, "Goli's day");
+  status_ = textPage(screen, STATUS, "Goli");
 
   // Page dots
   dot_row_ = lv_obj_create(screen);
@@ -88,14 +83,40 @@ void Screens::begin(lv_obj_t *screen) {
   lv_obj_add_flag(dot_row_, LV_OBJ_FLAG_HIDDEN);
 }
 
+lv_obj_t *Screens::textPage(lv_obj_t *screen, Page p, const char *title) {
+  lv_obj_t *pg = pages_[p] = makePage(screen);
+  lv_obj_t *head = label(pg, &lv_font_montserrat_28, kLight, 300);
+  lv_obj_set_pos(head, kC - 150, 70);
+  lv_label_set_text(head, title);
+  lv_obj_t *body = label(pg, &lv_font_montserrat_28, 0xffffff, 340);
+  lv_obj_set_style_text_line_space(body, 8, 0);
+  lv_obj_set_pos(body, kC - 170, 124);
+  return body;
+}
+
+void Screens::enable(int p, bool on) {
+  if (p > FACE && p < COUNT) enabled_[p] = on;
+  if (!on && page_ == p) show(FACE);
+}
+
+void Screens::step(int dir) {
+  int p = page_;
+  do p = ((p + dir) % COUNT + COUNT) % COUNT;
+  while (!enabled_[p]);
+  show(p);
+}
+
 void Screens::show(int p) {
   page_ = ((p % COUNT) + COUNT) % COUNT;
   for (int i = 1; i < COUNT; i++) {
     if (i == page_) lv_obj_clear_flag(pages_[i], LV_OBJ_FLAG_HIDDEN);
     else lv_obj_add_flag(pages_[i], LV_OBJ_FLAG_HIDDEN);
   }
-  for (int i = 0; i < COUNT; i++)
+  for (int i = 0; i < COUNT; i++) {
     lv_obj_set_style_bg_color(dots_[i], lv_color_hex(i == page_ ? 0xffffff : 0x3b4070), 0);
+    if (enabled_[i]) lv_obj_clear_flag(dots_[i], LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_add_flag(dots_[i], LV_OBJ_FLAG_HIDDEN);
+  }
   if (page_ == FACE) lv_obj_add_flag(dot_row_, LV_OBJ_FLAG_HIDDEN);
   else {
     lv_obj_clear_flag(dot_row_, LV_OBJ_FLAG_HIDDEN);
@@ -128,3 +149,7 @@ void Screens::setClock(const char *hhmm, const char *date) {
 }
 
 void Screens::setStatus(const char *text) { lv_label_set_text(status_, text); }
+
+void Screens::setAgenda(const char *text) { lv_label_set_text(agenda_, text); }
+
+void Screens::setToday(const char *text) { lv_label_set_text(today_, text); }

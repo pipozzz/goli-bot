@@ -19,6 +19,17 @@ void Motion::feed(float ax, float ay, float az, uint32_t now) {
   // Shake meter: rises with jerk, decays in about a second
   shake_ = shake_ * expf(-dt / 600.f) + (jerk > 0.35f ? jerk * dt / 60.f : 0.f);
   if (jerk > 0.6f) jolt_ = true;
+  // A knock: a short spike out of stillness; two of them 0.15-0.7 s apart make a double knock
+  if (jerk > 0.22f && last_jerk_ < 0.12f && shake_ < 0.6f) {
+    const uint32_t gap = now - tap_at_;
+    if (tap_at_ && gap > 150 && gap < 700) {
+      knock_ = true;
+      tap_at_ = 0;
+    } else {
+      tap_at_ = now;
+    }
+  }
+  last_jerk_ = jerk;
   if (jerk > 0.12f) {
     last_move_ = now;
     still_since_ = now;
@@ -41,6 +52,12 @@ void Motion::feed(float ax, float ay, float az, uint32_t now) {
   const float pitch = nz - g0z_;
   tilt_x_ = fmaxf(-1.f, fminf(1.f, TILT_ROLL_SIGN * sinf(roll) * 2.5f));
   tilt_y_ = fmaxf(-1.f, fminf(1.f, TILT_PITCH_SIGN * pitch * 2.5f));
+}
+
+bool Motion::takeKnock() {
+  const bool k = knock_;
+  knock_ = false;
+  return k;
 }
 
 bool Motion::takeJolt() {

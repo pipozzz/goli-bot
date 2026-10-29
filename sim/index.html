@@ -82,7 +82,7 @@
           <tr><td>2 / 3 taps</td><td>wink / focus mode on and off</td></tr>
           <tr><td>5 / 10 taps</td><td>setup mode / demo loop</td></tr>
           <tr><td>press and hold</td><td>petting; 3 s still turns the face</td></tr>
-          <tr><td>drag across</td><td>overview, clock, status pages</td></tr>
+          <tr><td>drag across</td><td>overview, agenda, clock, his day, status</td></tr>
         </table>
       </div>
 
@@ -94,6 +94,7 @@
           <button class="b crit" data-alert="2">Critical</button>
           <button class="b good" data-alert="0">Good news</button>
         </div>
+        <div class="row"><label><input type="checkbox" id="prod"> it's a production deploy (try on a Friday afternoon)</label></div>
         <div class="row" style="margin-top:10px">
           <label style="flex:1">Connection
             <select id="hint">
@@ -103,6 +104,33 @@
               <option>Goliash unreachable</option>
             </select></label>
         </div>
+      </div>
+
+      <div class="panel">
+        <h2>Sounds</h2>
+        <div class="row"><label style="flex:1">New <select data-level="1"></select></label></div>
+        <div class="row"><label style="flex:1">Critical <select data-level="2"></select></label></div>
+        <div class="row"><label style="flex:1">Good news <select data-level="0"></select></label></div>
+        <div class="row"><button class="b" id="talk" aria-pressed="false">Goli talks</button>
+          <select id="hear" aria-label="Hear a sound" style="flex:1"></select><button class="b" id="hearbtn">&#9654;</button></div>
+      </div>
+
+      <div class="panel">
+        <h2>His day</h2>
+        <div class="row"><input type="text" id="mtitle" value="stand-up" aria-label="Meeting title">
+          <button class="b" id="meeting">Meeting in 2 min</button></div>
+        <div class="row">
+          <button class="b" data-wear="2" aria-pressed="false">Rain</button>
+          <button class="b" data-wear="1" aria-pressed="false">Sunny</button>
+          <button class="b" data-wear="4" aria-pressed="false">Freezing</button>
+          <button class="b" id="bday" aria-pressed="false">Birthday</button>
+        </div>
+        <div class="row"><label style="flex:1">Yesterday's alerts <input type="range" id="yday" min="0" max="40" value="0"></label></div>
+        <div class="row"><button class="b" id="desk" aria-pressed="false">Someone at the desk</button>
+          <label style="flex:1">break after <input type="range" id="brk" min="1" max="50" value="1"> <output id="brkv">1</output> min</label></div>
+        <div class="row"><button class="b" id="knock">Knock knock (snooze)</button>
+          <button class="b" id="tleft">Left Goli rang</button><button class="b" id="tright">Right Goli rang</button></div>
+        <div class="row"><button class="b" id="goliash" aria-pressed="true">Goliash connected</button></div>
       </div>
 
       <div class="panel">
@@ -183,7 +211,30 @@ function wire() {
   canvas.addEventListener('pointercancel', up);
 
   document.querySelectorAll('[data-alert]').forEach(b => b.onclick = () =>
-    Module.ccall('sim_alert', null, ['number', 'string'], [+b.dataset.alert, document.getElementById('title').value || 'Goliash']));
+    Module.ccall('sim_alert', null, ['number', 'string', 'number'],
+      [+b.dataset.alert, document.getElementById('title').value || 'Goliash', document.getElementById('prod').checked ? 1 : 0]));
+
+  // Sounds: the same list as the firmware's
+  const names = [];
+  for (let i = 0; i < Module._sim_sound_count(); i++)
+    names.push([Module.UTF8ToString(Module._sim_sound_name(i)), Module.UTF8ToString(Module._sim_sound_label(i))]);
+  const opts = names.filter(([n]) => n != 'custom').map(([n, l]) => `<option value="${n}">${l}</option>`).join('');
+  const defaults = {0: 'chirp', 1: 'ding', 2: 'ding-ding'};
+  document.querySelectorAll('[data-level]').forEach(sel => {
+    sel.innerHTML = opts; sel.value = defaults[sel.dataset.level];
+    sel.onchange = () => { Module.ccall('sim_sound', null, ['number', 'string'], [+sel.dataset.level, sel.value]);
+      Module.ccall('sim_play', null, ['string'], [sel.value]); };
+  });
+  const hear = document.getElementById('hear');
+  hear.innerHTML = opts + ['boop', 'wobble', 'yawn'].map(n => `<option>${n}</option>`).join('');
+  document.getElementById('hearbtn').onclick = () => Module.ccall('sim_play', null, ['string'], [hear.value]);
+
+  document.getElementById('meeting').onclick = () =>
+    Module.ccall('sim_meeting', null, ['string', 'number'], [document.getElementById('mtitle').value || 'meeting', 120]);
+  document.getElementById('yday').oninput = e => Module._sim_yesterday(+e.target.value);
+  document.getElementById('knock').onclick = () => Module._sim_knock();
+  document.getElementById('tleft').onclick = () => Module._sim_team(-1);
+  document.getElementById('tright').onclick = () => Module._sim_team(1);
   document.getElementById('hint').onchange = e => Module.ccall('sim_hint', null, ['string'], [e.target.value]);
 
   const tilt = () => Module._sim_tilt(+document.getElementById('roll').value, +document.getElementById('pitch').value);
@@ -198,6 +249,18 @@ function wire() {
     b.onclick = () => { const on = b.getAttribute('aria-pressed') !== 'true'; b.setAttribute('aria-pressed', on); fn(on); };
   };
   toggle('flat', on => Module._sim_flat(on ? 1 : 0));
+  toggle('talk', on => Module._sim_talk(on ? 1 : 0));
+  toggle('bday', on => Module._sim_birthday(on ? 1 : 0));
+  toggle('goliash', on => Module._sim_goliash(on ? 1 : 0));
+  const desk = () => { const m = +document.getElementById('brk').value; document.getElementById('brkv').value = m;
+    Module._sim_desk(document.getElementById('desk').getAttribute('aria-pressed') === 'true' ? 1 : 0, m); };
+  toggle('desk', desk);
+  document.getElementById('brk').oninput = desk;
+  let wear = 0;
+  document.querySelectorAll('[data-wear]').forEach(b => b.onclick = () => {
+    const on = b.getAttribute('aria-pressed') !== 'true'; b.setAttribute('aria-pressed', on);
+    wear = on ? wear | +b.dataset.wear : wear & ~+b.dataset.wear; Module._sim_weather(wear);
+  });
   toggle('noise', on => Module._sim_noise(on ? 1 : 0));
   const power = () => {
     const bat = document.getElementById('battery').getAttribute('aria-pressed') === 'true';

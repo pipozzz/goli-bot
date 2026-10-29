@@ -7,7 +7,7 @@
 #include <NetworkClientSecure.h>
 
 #include "config.h"
-#include "ota_roots.h"
+#include "tls_roots.h"
 #include "settings.h"
 
 namespace ota {
@@ -21,7 +21,7 @@ bool check() {
   if (!strcmp(GOLI_VERSION, "dev") || !settings::get().auto_update) return true;
 
   NetworkClientSecure tls;
-  tls.setCACert(kOtaRoots);
+  tls.setCACert(kTlsRoots);
   HTTPClient http;
   if (!http.begin(tls, OTA_MANIFEST_URL)) return false;
   http.setTimeout(8000);
@@ -50,7 +50,7 @@ bool check() {
   vTaskDelay(pdMS_TO_TICKS(1500));  // let the face show "updating" first
 
   NetworkClientSecure dl;
-  dl.setCACert(kOtaRoots);
+  dl.setCACert(kTlsRoots);
   httpUpdate.rebootOnUpdate(true);
   const HTTPUpdateResult r = httpUpdate.update(dl, url, GOLI_VERSION);
   busy = false;  // only reached when the update did not happen

@@ -12,6 +12,8 @@ namespace {
 
 Settings s;
 Preferences prefs;
+SemaphoreHandle_t mutex = xSemaphoreCreateRecursiveMutex();
+volatile uint32_t version = 0;  // bumped by every save()
 
 }  // namespace
 
@@ -27,6 +29,20 @@ void ensureKey() {
   if (s.api_key.length()) return;
   s.api_key = randomKey();
   prefs.putString("key", s.api_key);
+  prefs.putString("sndi", s.snd_info);
+  prefs.putString("sndc", s.snd_crit);
+  prefs.putString("sndg", s.snd_good);
+  prefs.putBool("talk", s.talk);
+  prefs.putString("ics", s.ics);
+  prefs.putString("lat", s.lat);
+  prefs.putString("lon", s.lon);
+  prefs.putString("gh", s.gh_token);
+  prefs.putString("watch", s.watch);
+  prefs.putString("tleft", s.team_left);
+  prefs.putString("tright", s.team_right);
+  prefs.putBool("buddy", s.buddy);
+  prefs.putInt("brk", s.break_min);
+  prefs.putString("bday", s.birthday);
 }
 
 void load() {
@@ -58,9 +74,27 @@ void load() {
   s.services = prefs.getString("svcs");
   s.push = prefs.getBool("push", false);
   s.listen = prefs.getBool("mic", true);
+  s.snd_info = prefs.getString("sndi", "ding");
+  s.snd_crit = prefs.getString("sndc", "ding-ding");
+  s.snd_good = prefs.getString("sndg", "chirp");
+  s.talk = prefs.getBool("talk", false);
+  s.ics = prefs.getString("ics");
+  s.lat = prefs.getString("lat");
+  s.lon = prefs.getString("lon");
+  s.gh_token = prefs.getString("gh");
+  s.watch = prefs.getString("watch");
+  s.team_left = prefs.getString("tleft");
+  s.team_right = prefs.getString("tright");
+  s.buddy = prefs.getBool("buddy", true);
+  s.break_min = prefs.getInt("brk", 50);
+  s.birthday = prefs.getString("bday");
 }
 
 void save() {
+  xSemaphoreTakeRecursive(mutex, portMAX_DELAY);
+  const Settings s = settings::s;  // write a snapshot: NVS commits are slow, don't hold the lock for them
+  version++;
+  xSemaphoreGiveRecursive(mutex);
   prefs.putString("ssid", s.ssid);
   prefs.putString("pass", s.pass);
   prefs.putString("url", s.url);
@@ -76,6 +110,20 @@ void save() {
   prefs.putBool("push", s.push);
   prefs.putBool("mic", s.listen);
   prefs.putString("key", s.api_key);
+  prefs.putString("sndi", s.snd_info);
+  prefs.putString("sndc", s.snd_crit);
+  prefs.putString("sndg", s.snd_good);
+  prefs.putBool("talk", s.talk);
+  prefs.putString("ics", s.ics);
+  prefs.putString("lat", s.lat);
+  prefs.putString("lon", s.lon);
+  prefs.putString("gh", s.gh_token);
+  prefs.putString("watch", s.watch);
+  prefs.putString("tleft", s.team_left);
+  prefs.putString("tright", s.team_right);
+  prefs.putBool("buddy", s.buddy);
+  prefs.putInt("brk", s.break_min);
+  prefs.putString("bday", s.birthday);
 }
 
 Settings &get() { return s; }
@@ -92,6 +140,33 @@ bool takeSetupRequest() {
   const bool want = prefs.getBool("setup", false);
   if (want) prefs.remove("setup");
   return want;
+}
+
+}  // namespace settings
+
+namespace settings {
+
+void lock() { xSemaphoreTakeRecursive(mutex, portMAX_DELAY); }
+void unlock() { xSemaphoreGiveRecursive(mutex); }
+
+Settings copy() {
+  lock();
+  Settings c = s;
+  unlock();
+  return c;
+}
+
+}  // namespace settings
+
+namespace settings {
+
+uint32_t changes() { return version; }
+
+bool tryCopy(Settings &out) {
+  if (xSemaphoreTakeRecursive(mutex, 0) != pdTRUE) return false;
+  out = s;
+  xSemaphoreGiveRecursive(mutex);
+  return true;
 }
 
 }  // namespace settings
