@@ -40,4 +40,10 @@ struct Hook {
 };
 Hook webhook(JsonObjectConst msg);  // GOLIASH: hand the message to goliash::pushMessage
 
+// One ntfy "message" event ({"title", "message", "priority", "tags"}). A message that is itself JSON
+// (a monitoring tool posting its webhook to the topic) is read like POST /notify; otherwise the
+// priority and tags give the level: 5 or rotating_light/warning/x = critical, white_check_mark/tada/+1 = good.
+// `inner` holds the parsed message when the result is GOLIASH (for goliash::pushMessage).
+Hook ntfy(JsonObjectConst event, JsonDocument &inner);
+
 }  // namespace rules

@@ -19,6 +19,7 @@
 #include "github.h"
 #include "goliash.h"
 #include "mqtt.h"
+#include "ntfy.h"
 #include "ota.h"
 #include "reminders.h"
 #include "rules.h"
@@ -276,6 +277,9 @@ void getConfig() {
   d["mqtt_port"] = c.mqtt_port;
   d["mqtt_user"] = c.mqtt_user;
   d["has_mqtt_pass"] = c.mqtt_pass.length() > 0;
+  d["mqtt_tls"] = c.mqtt_tls;
+  d["has_ntfy"] = c.ntfy_url.length() > 0;  // the topic is a secret: never sent back
+  d["has_ntfy_token"] = c.ntfy_token.length() > 0;
   d["bday"] = c.birthday;
   d["key"] = c.api_key;
   d["custom"] = sound::customSamples() > 0;
@@ -343,6 +347,9 @@ void setConfig() {
   str("lang", s.lang);
   str("mqtt_host", s.mqtt_host);
   num("mqtt_port", s.mqtt_port, 1, 65535);
+  flag("mqtt_tls", s.mqtt_tls);
+  if (in["ntfy"].is<const char *>()) s.ntfy_url = in["ntfy"].as<const char *>(), s.ntfy_url.trim();
+  if (in["ntfy_token"].is<const char *>()) s.ntfy_token = in["ntfy_token"].as<const char *>();
   str("mqtt_user", s.mqtt_user);
   if (in["mqtt_pass"].is<const char *>()) s.mqtt_pass = in["mqtt_pass"].as<const char *>();
   str("bday", s.birthday);
@@ -375,6 +382,9 @@ void getState() {
   d["github"] = github::state();
   d["down"] = watch::down();
   d["mqtt"] = mqtt::status();
+  d["ntfy"] = ntfy::status();
+  d["ram"] = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+  d["ram_block"] = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
   bot::State st;
   portENTER_CRITICAL(&state_lock);
   st = shared_state;
@@ -595,6 +605,9 @@ void backup() {
   d["mqtt_port"] = c.mqtt_port;
   d["mqtt_user"] = c.mqtt_user;
   d["mqtt_pass"] = c.mqtt_pass;
+  d["mqtt_tls"] = c.mqtt_tls;
+  d["ntfy"] = c.ntfy_url;
+  d["ntfy_token"] = c.ntfy_token;
   reminders::Reminder r[12];
   const int n = reminders::list(r, 12);
   JsonArray rem = d["reminders"].to<JsonArray>();

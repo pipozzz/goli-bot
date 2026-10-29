@@ -120,4 +120,29 @@ Hook webhook(JsonObjectConst msg) {
   return h;
 }
 
+Hook ntfy(JsonObjectConst event, JsonDocument &inner) {
+  const char *message = event["message"] | "";
+  const char *title = event["title"] | "";
+  if (*message == '{' && !deserializeJson(inner, message) && inner.is<JsonObject>()) {
+    Hook h = webhook(inner.as<JsonObjectConst>());
+    if (h.kind != Hook::INVALID) return h;
+  }
+  Hook h;
+  h.kind = Hook::PLAIN;
+  if (*title && *message) snprintf(h.title, sizeof h.title, "%s: %s", title, message);
+  else snprintf(h.title, sizeof h.title, "%s", *title ? title : *message ? message : "ntfy");
+  const int priority = event["priority"] | 3;
+  h.level = priority >= 5 ? AlertLevel::CRITICAL : AlertLevel::INFO;
+  static const char *bad[] = {"rotating_light", "warning", "x", "red_circle", "skull", "fire"};
+  static const char *good[] = {"white_check_mark", "heavy_check_mark", "tada", "+1", "green_circle", "partying_face"};
+  for (const char *tag : event["tags"].as<JsonArrayConst>()) {
+    if (!tag) continue;
+    for (const char *b : bad)
+      if (!strcmp(tag, b)) h.level = AlertLevel::CRITICAL;
+    for (const char *g : good)
+      if (!strcmp(tag, g) && h.level != AlertLevel::CRITICAL) h.level = AlertLevel::GOOD;
+  }
+  return h;
+}
+
 }  // namespace rules

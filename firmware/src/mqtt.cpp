@@ -9,11 +9,13 @@
 #include "goliash.h"
 #include "rules.h"
 #include "settings.h"
+#include "tls.h"
 
 namespace mqtt {
 namespace {
 
 NetworkClient net;
+NetworkClientSecure tls_net;  // cloud brokers (HiveMQ Cloud, EMQX...): TLS on port 8883
 PubSubClient client(net);
 volatile const char *last_status = "off";
 String base;  // goli/<name>
@@ -37,11 +39,17 @@ void received(char *topic, uint8_t *payload, unsigned int len) {
     api::request(api::Command::QUIET, body == "ON" ? 1 : 0);
   } else if (t == base + "/say") {  // Home Assistant's notify entity: the message, as plain text
     if (body.length()) goliash::pushAlert(body.c_str(), AlertLevel::INFO);
-  } else if (t == base + "/notify") {  // {"title": "...", "level": "info|critical|good"}
+  } else if (t == base + "/notify") {
+    // {"title", "level"}, or anything POST /notify takes: a Goliash message, Alertmanager, Grafana,
+    // Uptime Kuma (so a bridge can forward webhooks as they are); plain text rings as info
     JsonDocument doc;
-    if (deserializeJson(doc, body)) return;
-    const char *title = doc["title"] | "";
-    if (*title) goliash::pushAlert(title, rules::parseLevel(doc["level"] | "info"));
+    if (deserializeJson(doc, body) || !doc.is<JsonObject>()) {
+      if (body.length()) goliash::pushAlert(body.c_str(), AlertLevel::INFO);
+      return;
+    }
+    const rules::Hook hook = rules::webhook(doc.as<JsonObjectConst>());
+    if (hook.kind == rules::Hook::GOLIASH) goliash::pushMessage(doc.as<JsonObjectConst>());
+    else if (hook.kind != rules::Hook::INVALID) goliash::pushAlert(hook.title, hook.level, hook.count);
   }
 }
 
@@ -147,7 +155,7 @@ void task(void *) {
       seen_version = settings::changes();
       const Settings next = settings::copy();
       if (next.mqtt_host != cfg.mqtt_host || next.mqtt_port != cfg.mqtt_port || next.mqtt_user != cfg.mqtt_user ||
-          next.mqtt_pass != cfg.mqtt_pass) {
+          next.mqtt_pass != cfg.mqtt_pass || next.mqtt_tls != cfg.mqtt_tls) {
         if (client.connected()) {  // a clean disconnect doesn't send the last will: say goodbye ourselves
           client.publish((base + "/status").c_str(), "offline", true);
           client.disconnect();
@@ -169,6 +177,12 @@ void task(void *) {
       if (last_try && millis() - last_try < 15000) continue;
       last_try = millis() | 1;
       base = String("goli/") + api::hostname();
+      if (cfg.mqtt_tls) {
+        trustPublicRoots(tls_net);
+        client.setClient(tls_net);
+      } else {
+        client.setClient(net);
+      }
       client.setServer(cfg.mqtt_host.c_str(), uint16_t(cfg.mqtt_port));
       client.setCallback(received);
       client.setBufferSize(1024);
@@ -213,7 +227,12 @@ void task(void *) {
 
 }  // namespace
 
-void begin() { xTaskCreatePinnedToCore(task, "goli_mqtt", 6144, nullptr, 1, nullptr, 0); }
+void begin() {  // only once a broker is set up
+  static bool started = false;
+  if (started) return;
+  started = true;
+  xTaskCreatePinnedToCore(task, "goli_mqtt", 10240, nullptr, 1, nullptr, 0);
+}
 
 void setState(const bot::State &s) {
   portENTER_CRITICAL(&lock);

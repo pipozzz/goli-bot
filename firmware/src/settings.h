@@ -45,6 +45,10 @@ struct Settings {
   // Home Assistant (MQTT discovery); empty host = off
   String mqtt_host, mqtt_user, mqtt_pass;
   int mqtt_port = 1883;
+  bool mqtt_tls = false;    // TLS: cloud brokers, usually port 8883
+
+  // ntfy: a topic to listen to (https://ntfy.sh/a-secret-topic), and a token for protected topics
+  String ntfy_url, ntfy_token;
   String birthday;          // "MM-DD"
 };
 

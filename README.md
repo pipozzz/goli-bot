@@ -342,6 +342,8 @@ Everything is optional; Goli is happy with none of them, and Goliash is just one
 | **Weather**: a location (*Use my location* on the web page) | from [Open-Meteo](https://open-meteo.com/) every 30 minutes: an umbrella with rain falling when rain is likely in the next 8 hours, sunglasses on a sunny 20 °C+ day, a scarf at 2 °C or snow |
 | **GitHub**: a classic token with the `notifications` scope | review requests and mentions ring; failed CI on your pull requests and security alerts ring as critical. Checked every minute. |
 | **Keep an eye on**: up to 6 URLs | fetched every minute; two failures in a row is critical ("shop.example.com is down"), and he's happy when it's back |
+| **ntfy**: a topic on ntfy.sh or your own server | every message posted to it rings; JSON in a webhook format he knows is read like `POST /notify` |
+| **MQTT**: Home Assistant's broker, or a cloud one (TLS) | `goli/goli-xxxx/notify` takes a title or webhook JSON |
 | **Anything else**: `POST /notify` | see *Ring Goli from anything* |
 
 HTTPS to these services is checked against the Mozilla root certificates built into ESP-IDF; the watched
@@ -386,6 +388,40 @@ himself with MQTT discovery and shows up as a device:
 
 For a level, publish `{"title": "Washing machine done", "level": "good"}` to `goli/goli-xxxx/notify`.
 Goli marks himself offline in Home Assistant when he loses the broker.
+
+### From the cloud: Goli has no public address
+
+Webhooks (`POST /notify`) only reach Goli from inside your network: a Goliash, Grafana or Uptime Kuma
+running at home, a script on your laptop. Everything Goli **asks for** works from anywhere, because he
+connects out: Goliash (polling, the default), GitHub, calendars, weather, updates. For services in the
+cloud to **push** to him, give them something both sides connect to:
+
+**ntfy** (simplest): pick a long random topic, e.g. `https://ntfy.sh/goli-7f3k9q2xw`, put it on Goli's web
+page (*Alerts* → *ntfy*), and post to it from anywhere:
+
+```bash
+curl -d "deploy finished" -H "Tags: tada" https://ntfy.sh/goli-7f3k9q2xw          # good news
+curl -d "prod is down" -H "Priority: urgent" https://ntfy.sh/goli-7f3k9q2xw       # critical
+```
+
+Priority 5 (`urgent`) or a `rotating_light`, `warning`, `x` tag rings as critical; `white_check_mark`,
+`tada`, `+1` as good news. Grafana Cloud, Uptime Kuma or Alertmanager can use the topic as their webhook
+URL: the JSON they post becomes the message, and Goli reads it like `POST /notify`. On ntfy.sh anyone who
+knows the topic can post to it, so keep it secret, or run your own ntfy with an access token.
+
+**MQTT**: a broker in the cloud (HiveMQ Cloud and EMQX Cloud have free plans) with **TLS** ticked on the
+web page, port 8883. Publish a title or webhook JSON to `goli/goli-xxxx/notify`. From GitHub Actions:
+
+```yaml
+- if: failure()
+  run: |
+    sudo apt-get install -y mosquitto-clients
+    mosquitto_pub -h ${{ secrets.MQTT_HOST }} -p 8883 --capath /etc/ssl/certs \
+      -u ${{ secrets.MQTT_USER }} -P ${{ secrets.MQTT_PASS }} -t goli/goli-xxxx/notify \
+      -m '{"title":"${{ github.repository }}: build failed","level":"critical"}'
+```
+
+Or from ntfy in a GitHub Actions step: `curl -d "build failed" -H "Priority: urgent" https://ntfy.sh/<topic>`.
 
 ### Ring Goli from anything
 

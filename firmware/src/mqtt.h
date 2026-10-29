@@ -7,7 +7,7 @@
 // notify entity; anything published to goli/<name>/notify as {"title", "level"} rings him too.
 namespace mqtt {
 
-void begin();                  // starts its own task; idle while no broker is set up
+void begin();                  // starts its own task (call once a broker is set up; again is harmless)
 void setState(const bot::State &s);  // from the main loop, every second
 const char *status();          // "off", "connected", or what's wrong
 

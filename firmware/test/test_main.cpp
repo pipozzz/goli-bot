@@ -260,6 +260,27 @@ static void testRules() {
   CHECK(!rules::wanted(svc, items[0], AlertLevel::CRITICAL), "service not in the list");
   CHECK(rules::wanted(svc, items[3], AlertLevel::CRITICAL), "items without a service pass");
 
+  // ntfy events
+  auto nt = [](const char *json) {
+    static JsonDocument ev, inner;
+    ev.clear();
+    deserializeJson(ev, json);
+    return rules::ntfy(ev.as<JsonObjectConst>(), inner);
+  };
+  h = nt(R"({"event":"message","message":"backup done","tags":["white_check_mark"]})");
+  CHECK(h.kind == Hook::PLAIN && h.level == AlertLevel::GOOD && !strcmp(h.title, "backup done"), "ntfy good tag");
+  h = nt(R"({"event":"message","title":"Server","message":"disk full","priority":5})");
+  CHECK(h.level == AlertLevel::CRITICAL && !strcmp(h.title, "Server: disk full"), "ntfy urgent: '%s'", h.title);
+  h = nt(R"({"event":"message","message":"hello"})");
+  CHECK(h.level == AlertLevel::INFO, "ntfy default is info");
+  h = nt(R"({"event":"message","message":"x","tags":["warning","tada"]})");
+  CHECK(h.level == AlertLevel::CRITICAL, "a bad tag wins over a good one");
+  h = nt(R"({"event":"message","message":"{\"heartbeat\":{\"status\":0},\"monitor\":{\"name\":\"shop\"},\"msg\":\"x\"}"})");
+  CHECK(h.kind == Hook::UPTIME_KUMA && h.level == AlertLevel::CRITICAL && !strcmp(h.title, "shop is down"),
+        "Uptime Kuma posting its webhook to ntfy: '%s'", h.title);
+  h = nt(R"({"event":"message","message":"{not json at all"})");
+  CHECK(h.kind == Hook::PLAIN && !strcmp(h.title, "{not json at all"), "a brace that isn't JSON is just text");
+
   JsonDocument none;
   deserializeJson(none, R"([{"type":"drift_detected","service":"payments","environment":"staging"}])");
   CHECK(!rules::judge(crit, none.as<JsonArrayConst>(), level), "nothing passes: no alert");

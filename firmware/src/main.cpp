@@ -30,6 +30,7 @@
 #include "mic.h"
 #include "motion.h"
 #include "mqtt.h"
+#include "ntfy.h"
 #include "ota.h"
 #include "power.h"
 #include "reminders.h"
@@ -138,6 +139,9 @@ void refreshSettings() {
   if (settings::changes() != cfg_version && settings::tryCopy(cfg)) {
     cfg_version = settings::changes();
     setLanguage(cfg.lang.c_str());
+    // Their tasks (and TLS connections) only when they're used: internal RAM is the scarce kind
+    if (cfg.mqtt_host.length() && settings::hasWifi()) mqtt::begin();
+    if (cfg.ntfy_url.length() && settings::hasWifi()) ntfy::begin();
   }
 }
 
@@ -207,6 +211,17 @@ void takeShot(int id) {
 }
 
 // What the web page asked for that has to happen here (screen, I2C)
+// Every 5 minutes in the log: internal RAM (TLS buffers live there), for the first days on real hardware
+void logMemory(uint32_t now) {
+  static uint32_t next = 60000;
+  if (int32_t(now - next) < 0) return;
+  next = now + 300000;
+  Serial.printf("memory: internal %u free, largest block %u; PSRAM %u free\n",
+                unsigned(heap_caps_get_free_size(MALLOC_CAP_INTERNAL)),
+                unsigned(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL)),
+                unsigned(heap_caps_get_free_size(MALLOC_CAP_SPIRAM)));
+}
+
 void pollWeb(uint32_t now) {
   api::Request r;
   while (api::take(r)) {
@@ -444,7 +459,7 @@ void setup() {
   if (t > 1700000000 && prefs.getInt("yfor", 0) == dateOf(t)) bot::yesterday(prefs.getInt("ya"), prefs.getInt("yc"));
   api::begin();                     // before Wi-Fi starts: sets the hostname
   goliash::begin();
-  mqtt::begin();
+
   improv::begin(nullptr, nullptr);  // the web installer can change the Wi-Fi
   Serial.printf("Goli %s is up. Furt dačo!\n", GOLI_VERSION);
 }
@@ -462,6 +477,7 @@ void loop() {
   refreshSettings();
   pollSources(now);
   pollWeb(now);
+  logMemory(now);
   pollPower(now);
   improv::loop();
   rtc::maintain(now);

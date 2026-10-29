@@ -81,6 +81,9 @@ void load() {
   s.mqtt_user = prefs.getString("mqu");
   s.mqtt_pass = prefs.getString("mqp");
   s.mqtt_port = prefs.getInt("mqport", 1883);
+  s.mqtt_tls = prefs.getBool("mqtls", false);
+  s.ntfy_url = prefs.getString("ntfy");
+  s.ntfy_token = prefs.getString("ntfyt");
   s.birthday = prefs.getString("bday");
 }
 
@@ -126,6 +129,9 @@ void save() {
   prefs.putString("mqu", s.mqtt_user);
   prefs.putString("mqp", s.mqtt_pass);
   prefs.putInt("mqport", s.mqtt_port);
+  prefs.putBool("mqtls", s.mqtt_tls);
+  prefs.putString("ntfy", s.ntfy_url);
+  prefs.putString("ntfyt", s.ntfy_token);
 }
 
 Settings &get() { return s; }
