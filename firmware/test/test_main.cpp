@@ -188,6 +188,23 @@ static rules::Hook hook(const char *json) {
   return rules::webhook(doc.as<JsonObjectConst>());
 }
 
+static void testTemperature() {
+  char t[16];
+  const struct {
+    int c;
+    bool f;
+    const char *want;
+  } cases[] = {{12, false, "12 \u00b0C"}, {-4, false, "-4 \u00b0C"}, {12, true, "54 \u00b0F"}, {0, true, "32 \u00b0F"},
+               {-40, true, "-40 \u00b0F"}, {-4, true, "25 \u00b0F"}, {28, true, "82 \u00b0F"}, {37, true, "99 \u00b0F"}};
+  for (const auto &k : cases) {
+    tempText(t, sizeof t, k.c, k.f);
+    CHECK(!strcmp(t, k.want), "%d C as %s: '%s', want '%s'", k.c, k.f ? "F" : "C", t, k.want);
+  }
+  char folded[32];
+  foldAscii("Server room 31\u00b0C", folded, sizeof folded);
+  CHECK(!strcmp(folded, "Server room 31\u00b0C"), "the degree sign survives folding: '%s'", folded);
+}
+
 static void testRules() {
   using rules::Hook;
   Hook h = hook(R"({"title":"nightly build failed","level":"critical"})");
@@ -291,6 +308,7 @@ int main() {
   tzset();
   testCalendar();
   testText();
+  testTemperature();
   testRules();
   printf("%d checks, %d failed\n", checks, failures);
   return failures ? 1 : 0;

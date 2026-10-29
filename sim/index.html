@@ -130,7 +130,8 @@
         <div class="row"><button class="b" id="desk" aria-pressed="false">Someone at the desk</button>
           <label style="flex:1">break after <input type="range" id="brk" min="1" max="50" value="1"> <output id="brkv">1</output> min</label></div>
         <div class="row"><label style="flex:1">Time and temperature on his face
-          <select id="fclk"><option value="0">Never</option><option value="1" selected>Now and then (every minute here)</option><option value="2">Always</option></select></label></div>
+          <select id="fclk"><option value="0">Never</option><option value="1" selected>Now and then (every minute here)</option><option value="2">Always</option></select></label>
+          <button class="b" id="fahr" aria-pressed="false">&deg;F</button></div>
         <div class="row"><label style="flex:1">Focus (3 taps) lasts <input type="range" id="focusmin" min="1" max="60" value="25"> <output id="focusv">25</output> min</label></div>
         <div class="row"><button class="b" id="timer1">Timer 1 min</button><button class="b" id="quiet" aria-pressed="false">Quiet</button></div>
         <div class="row"><button class="b" id="knock">Knock knock (snooze)</button>
@@ -263,6 +264,7 @@ function wire() {
   toggle('flat', on => Module._sim_flat(on ? 1 : 0));
   toggle('talk', on => Module._sim_talk(on ? 1 : 0));
   toggle('quiet', on => Module._sim_quiet(on ? 1 : 0));
+  toggle('fahr', on => Module._sim_fahrenheit(on ? 1 : 0));
   toggle('bday', on => Module._sim_birthday(on ? 1 : 0));
   toggle('goliash', on => Module._sim_goliash(on ? 1 : 0));
   const desk = () => { const m = +document.getElementById('brk').value; document.getElementById('brkv').value = m;

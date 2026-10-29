@@ -347,7 +347,7 @@ Everything is optional; Goli is happy with none of them, and Goliash is just one
 |---|---|
 | **Goliash** | notifications by severity, the overview page (see below) |
 | **Calendar**: secret iCal addresses (Google, Outlook, iCloud, Nextcloud), up to 4, separated by spaces | today's meetings on a page, an amber countdown ring 10 minutes before each, a ding when it starts. Daily and weekly repeats (with skipped dates) are expanded; monthly ones and moved single instances are not. Times are taken in Goli's time zone. Checked every 10 minutes. |
-| **Weather**: a location (*Use my location* on the web page) | from [Open-Meteo](https://open-meteo.com/) every 30 minutes: an umbrella with rain falling when rain is likely in the next 8 hours, sunglasses on a sunny 20 °C+ day, a scarf at 2 °C or snow; the temperature with the time on his face and in the morning greeting |
+| **Weather**: a location (*Use my location* on the web page) | from [Open-Meteo](https://open-meteo.com/) every 30 minutes: an umbrella with rain falling when rain is likely in the next 8 hours, sunglasses on a sunny 20 °C+ day, a scarf at 2 °C or snow; the temperature (°C or °F) with the time on his face and in the morning greeting |
 | **GitHub**: a classic token with the `notifications` scope | review requests and mentions ring; failed CI on your pull requests and security alerts ring as critical. Checked every minute. |
 | **Keep an eye on**: up to 6 URLs | fetched every minute; two failures in a row is critical ("shop.example.com is down"), and he's happy when it's back |
 | **ntfy**: a topic on ntfy.sh or your own server | every message posted to it rings; JSON in a webhook format he knows is read like `POST /notify` |

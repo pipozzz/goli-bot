@@ -78,6 +78,7 @@ void load() {
   s.night_off = prefs.getBool("night", false);
   s.face_clock = prefs.getInt("fclk", 1);
   s.face_clock_min = prefs.getInt("fclkm", 15);
+  s.fahrenheit = prefs.getBool("fahr", false);
   s.lang = prefs.getString("lang", "en");
   s.mqtt_host = prefs.getString("mqh");
   s.mqtt_user = prefs.getString("mqu");
@@ -128,6 +129,7 @@ void save() {
   prefs.putBool("night", s.night_off);
   prefs.putInt("fclk", s.face_clock);
   prefs.putInt("fclkm", s.face_clock_min);
+  prefs.putBool("fahr", s.fahrenheit);
   prefs.putString("lang", s.lang);
   prefs.putString("mqh", s.mqtt_host);
   prefs.putString("mqu", s.mqtt_user);

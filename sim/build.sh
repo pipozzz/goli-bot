@@ -30,6 +30,6 @@ emcc "${flags[@]}" -std=c++17 -c "$here/sim.cpp" -o "$obj/sim.o"
 
 em++ -O2 "$obj"/lv_*.o "${objs[@]}" "$obj/goli_font_clock.o" "$obj/sim.o" -o "$out/goli.js" \
   -sALLOW_MEMORY_GROWTH=1 -sEXPORTED_RUNTIME_METHODS=ccall,UTF8ToString,HEAPU8,HEAP16 \
-  -sEXPORTED_FUNCTIONS=_main,_sim_fb,_sim_take_dirty,_sim_pointer,_sim_tilt,_sim_flat,_sim_shake,_sim_bump,_sim_clap,_sim_noise,_sim_alert,_sim_power,_sim_hint,_sim_sound,_sim_play,_sim_sound_count,_sim_sound_name,_sim_sound_label,_sim_talk,_sim_meeting,_sim_weather,_sim_birthday,_sim_desk,_sim_knock,_sim_timer,_sim_quiet,_sim_focus_min,_sim_lang,_sim_team,_sim_yesterday,_sim_goliash,_sim_face_clock
+  -sEXPORTED_FUNCTIONS=_main,_sim_fb,_sim_take_dirty,_sim_pointer,_sim_tilt,_sim_flat,_sim_shake,_sim_bump,_sim_clap,_sim_noise,_sim_alert,_sim_power,_sim_hint,_sim_sound,_sim_play,_sim_sound_count,_sim_sound_name,_sim_sound_label,_sim_talk,_sim_meeting,_sim_weather,_sim_birthday,_sim_desk,_sim_knock,_sim_timer,_sim_quiet,_sim_focus_min,_sim_lang,_sim_team,_sim_yesterday,_sim_goliash,_sim_face_clock,_sim_fahrenheit
 cp "$here/index.html" "$out/index.html"
 echo "simulator in $out (serve it: python3 -m http.server -d sim/out)"

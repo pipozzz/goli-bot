@@ -106,12 +106,16 @@ bool localTime(struct tm &lt) {
 
 int faceClock() { return hk.faceClock ? hk.faceClock() : 1; }
 
-// "14:32   12 C" for the line under his mouth; false without a clock
+bool fahrenheit() { return hk.fahrenheit && hk.fahrenheit(); }
+
+// "14:32   12 °C" for the line under his mouth; false without a clock
 bool clockLine(char *out, size_t cap) {
   struct tm lt;
   if (!localTime(lt)) return false;
-  const size_t n = strftime(out, cap, "%H:%M", &lt);
-  if (temp_now != kNoTemp) snprintf(out + n, cap - n, "   %d C", temp_now);
+  size_t n = strftime(out, cap, "%H:%M", &lt);
+  if (temp_now == kNoTemp) return true;
+  n += snprintf(out + n, cap - n, "   ");
+  tempText(out + n, cap - n, temp_now, fahrenheit());
   return true;
 }
 
@@ -446,7 +450,7 @@ void daily(const struct tm &lt, uint32_t now) {
                       weather_mask & SCARF ? tr(Txt::FREEZING) : nullptr;
     char meetings[32] = "", temp[12] = "";
     if (meet_n) snprintf(meetings, sizeof meetings, meetingsText(meet_n), meet_n);
-    if (temp_now != kNoTemp) snprintf(temp, sizeof temp, "%d C", temp_now);
+    if (temp_now != kNoTemp) tempText(temp, sizeof temp, temp_now, fahrenheit());
     for (const char *part : {(const char *)meetings, (const char *)temp, sky ? sky : ""}) {
       if (!*part) continue;
       const size_t n = strlen(brief);

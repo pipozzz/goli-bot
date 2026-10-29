@@ -24,6 +24,7 @@ time_t wall = 0;  // Unix seconds, moves with g_fake_millis
 std::vector<Sound> played;
 bool setup_called = false, quiet_hours = false, buddy_on = false;
 int face_clock = 1, face_clock_min = 15;
+bool fahrenheit = false;
 int brightness = -1;
 int failures = 0, checks = 0;
 
@@ -146,6 +147,7 @@ int main() {
   hooks.buddy = [] { return buddy_on; };
   hooks.faceClock = [] { return face_clock; };
   hooks.faceClockMin = [] { return face_clock_min; };
+  hooks.fahrenheit = [] { return fahrenheit; };
   bot::begin(lv_scr_act(), hooks, g_fake_millis);
   advance(1000);
 
@@ -263,27 +265,33 @@ int main() {
   bot::weather(0, 12);
   face_clock = 2;
   advance(1100);
-  CHECK(showing("   12 C"), "always: the time and 12 C under his mouth");
+  CHECK(showing("   12 \u00b0C"), "always: the time and 12 C under his mouth");
   face_clock = 0;
   advance(1100);
-  CHECK(!showing("12 C"), "never: gone");
+  CHECK(!showing("12 \u00b0C"), "never: gone");
   imu(0.9f);  // picked up
   advance(1100);
   still(200);
-  CHECK(!showing("12 C"), "never: not even when he's picked up");
+  CHECK(!showing("12 \u00b0C"), "never: not even when he's picked up");
   face_clock = 1;
   face_clock_min = 1;
   advance(61 * 1000);
-  CHECK(showing("12 C"), "now and then: every minute here");
+  CHECK(showing("12 \u00b0C"), "now and then: every minute here");
   advance(9 * 1000);
-  CHECK(!showing("12 C"), "...for a few seconds");
+  CHECK(!showing("12 \u00b0C"), "...for a few seconds");
   advance(20 * 1000);
   still(3000);
   imu(0.9f);
   advance(1100);
-  CHECK(showing("12 C"), "picked up: a look at the time");
+  CHECK(showing("12 \u00b0C"), "picked up: a look at the time");
   advance(7000);
-  CHECK(!showing("12 C"), "...and back to his face");
+  CHECK(!showing("12 \u00b0C"), "...and back to his face");
+  fahrenheit = true;
+  face_clock = 2;
+  advance(1100);
+  CHECK(showing("   54 \u00b0F"), "Fahrenheit: 54 F");
+  fahrenheit = false;
+  face_clock = 1;
   face_clock_min = 15;
   bot::weather(COLD, -4);
   advance(1100);
@@ -311,7 +319,7 @@ int main() {
   bot::presence(g_fake_millis);
   advance(2000);
   CHECK(heard(Sound::CHIRP), "first person at the desk in the morning: good morning");
-  CHECK(showing("12 C"), "the day ahead: the temperature too");
+  CHECK(showing("12 \u00b0C"), "the day ahead: the temperature too");
   played.clear();
   bot::presence(g_fake_millis);
   advance(2000);

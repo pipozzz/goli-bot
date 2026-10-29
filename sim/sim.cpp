@@ -32,6 +32,7 @@ Sound sounds[3] = {Sound::CHIRP, Sound::DING, Sound::ALARM};  // by AlertLevel: 
 bool talk = false, buddy_on = true, at_desk = false, bday = false;
 int break_min = 50, focus_min = FOCUS_MIN;
 int face_clock = 1, face_clock_min = 1;  // now and then: every minute here, to see it soon
+bool fahr = false;
 uint8_t weather_mask = 0;
 char today[6] = "";
 
@@ -65,11 +66,13 @@ int breakMin() { return break_min; }
 int focusMin() { return focus_min; }
 int faceClock() { return face_clock; }
 int faceClockMin() { return face_clock_min; }
+bool fahrenheit() { return fahr; }
 int temperature() {
   return weather_mask & HOT ? 31 : weather_mask & COLD ? -3 : weather_mask & UMBRELLA ? 9 : weather_mask & SUNGLASSES ? 24 : 14;
 }
 void weatherText(char *out, size_t cap) {
-  snprintf(out, cap, "%d C%s", temperature(), weather_mask & UMBRELLA ? ", rain later" : "");
+  tempText(out, cap, temperature(), fahr);
+  if (weather_mask & UMBRELLA) snprintf(out + strlen(out), cap - strlen(out), ", rain later");
 }
 const char *birthday() {
   if (!bday) return nullptr;
@@ -192,6 +195,7 @@ EMSCRIPTEN_KEEPALIVE void sim_birthday(int on) {
   bot::weather(weather_mask, temperature());  // dresses him again, party hat included
 }
 EMSCRIPTEN_KEEPALIVE void sim_face_clock(int mode) { face_clock = mode; }
+EMSCRIPTEN_KEEPALIVE void sim_fahrenheit(int on) { fahr = on; }
 EMSCRIPTEN_KEEPALIVE void sim_desk(int on, int minutes) {
   at_desk = on;
   break_min = minutes;
@@ -248,6 +252,7 @@ int main() {
   hooks.weather = weatherText;
   hooks.faceClock = faceClock;
   hooks.faceClockMin = faceClockMin;
+  hooks.fahrenheit = fahrenheit;
   bot::begin(lv_scr_act(), hooks, uint32_t(emscripten_get_now()));
   bot::weather(weather_mask, temperature());  // a mild 14 C to start with
   bot::meetings(nullptr, 0);

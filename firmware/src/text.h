@@ -5,8 +5,9 @@
 
 struct tm;
 
-// The built-in fonts are ASCII only: fold common accented letters (Slovak, Czech, German...).
+// The built-in fonts are ASCII (and °) only: fold common accented letters (Slovak, Czech, German...).
 void foldAscii(const char *in, char *out, size_t cap);
+void tempText(char *out, size_t cap, int celsius, bool fahrenheit);  // "12 °C" / "54 °F"
 
 // ---- Goli's words on the screen, in English, Slovak, Czech or German (ASCII: the fonts have no accents)
 enum class Txt : uint8_t {

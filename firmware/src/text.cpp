@@ -8,10 +8,10 @@
 void foldAscii(const char *in, char *out, size_t cap) {
   static const char *from[] = {"á", "ä", "à", "â", "č", "ď", "é", "ě", "è", "ê", "í", "ĺ", "ľ", "ň", "ó", "ô", "ö", "ŕ",
                                "ř", "š", "ť", "ú", "ů", "ü", "ý", "ž", "Á", "Ä", "Č", "Ď", "É", "Ě", "Í", "Ĺ", "Ľ", "Ň",
-                               "Ó", "Ô", "Ö", "Ŕ", "Ř", "Š", "Ť", "Ú", "Ů", "Ü", "Ý", "Ž", "ß", "–", "—", "’", "“", "”", "…"};
+                               "Ó", "Ô", "Ö", "Ŕ", "Ř", "Š", "Ť", "Ú", "Ů", "Ü", "Ý", "Ž", "ß", "–", "—", "’", "“", "”", "…", "°"};
   static const char *to[] = {"a", "a", "a", "a", "c", "d", "e", "e", "e", "e", "i", "l", "l", "n", "o", "o", "o", "r",
                              "r", "s", "t", "u", "u", "u", "y", "z", "A", "A", "C", "D", "E", "E", "I", "L", "L", "N",
-                             "O", "O", "O", "R", "R", "S", "T", "U", "U", "U", "Y", "Z", "ss", "-", "-", "'", "\"", "\"", "..."};
+                             "O", "O", "O", "R", "R", "S", "T", "U", "U", "U", "Y", "Z", "ss", "-", "-", "'", "\"", "\"", "...", "°"};
   size_t o = 0;
   while (*in && o + 4 < cap) {
     if ((uint8_t)*in < 0x80) {
@@ -35,6 +35,11 @@ void foldAscii(const char *in, char *out, size_t cap) {
     }
   }
   out[o] = 0;
+}
+
+void tempText(char *out, size_t cap, int celsius, bool fahrenheit) {
+  if (fahrenheit) snprintf(out, cap, "%d \u00b0F", (celsius * 18 + (celsius < 0 ? -5 : 5)) / 10 + 32);
+  else snprintf(out, cap, "%d \u00b0C", celsius);
 }
 
 // ---- languages

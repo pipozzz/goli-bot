@@ -32,10 +32,11 @@ struct Hooks {
   bool (*quietHours)() = nullptr;                    // night: no sounds from the desk buddy either
   int (*focusMin)() = nullptr;                       // how long focus mode lasts (nullptr: FOCUS_MIN)
   int (*breakAfterFocus)() = nullptr;                // minutes of break after a focus session (0 = none)
-  void (*weather)(char *out, size_t cap) = nullptr;  // "11 C, rain later" for the clock page
+  void (*weather)(char *out, size_t cap) = nullptr;  // "11 °C, rain later" for the clock page
   bool (*nightOff)() = nullptr;                      // screen fully off while he sleeps in quiet hours
   int (*faceClock)() = nullptr;                      // time and temperature on his face: 0 never, 1 now and then, 2 always
   int (*faceClockMin)() = nullptr;                   // "now and then": every this many minutes (nullptr: 15)
+  bool (*fahrenheit)() = nullptr;                    // °F instead of °C
 };
 
 const int kNoTemp = -999;  // the temperature isn't known

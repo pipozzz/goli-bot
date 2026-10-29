@@ -10,6 +10,7 @@ namespace weather {
 void poll();             // from the network task
 uint8_t accessories();   // Accessory bits for the face (and COLD / HOT)
 int temperature();       // °C now, rounded; bot::kNoTemp when off or not known yet
-void summary(char *out, size_t cap);  // "12 C, rain later" for the status page; "" when off
+void summary(char *out, size_t cap);  // "12 °C, rain later" for the status page; "" when off
+void setFahrenheit(bool on);
 
 }  // namespace weather

@@ -42,6 +42,7 @@ struct Settings {
   bool night_off = false;   // screen off while he sleeps in quiet hours
   int face_clock = 1;       // time and temperature on his face: 0 never, 1 now and then, 2 always
   int face_clock_min = 15;  // "now and then": every this many minutes
+  bool fahrenheit = false;  // °F instead of °C
   String lang = "en";      // Goli's words on the screen: en, sk, cs, de
 
   // Home Assistant (MQTT discovery); empty host = off

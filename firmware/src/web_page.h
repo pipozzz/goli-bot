@@ -122,13 +122,14 @@ code{background:var(--bg);padding:1px 5px;border-radius:5px;word-break:break-all
 <div class="card"><h2>Weather</h2>
 <div class="row"><label>Latitude<input data-k="lat"></label><label>Longitude<input data-k="lon"></label></div>
 <button class="b ghost" onclick="locate()">Use my location</button>
+<label class="check"><input type="checkbox" data-k="fahr">Fahrenheit (&deg;F)</label>
 <small>Umbrella when rain is coming, sunglasses on a sunny afternoon, a scarf when it freezes. From Open-Meteo.</small></div>
 <div class="card"><h2>Desk buddy</h2>
 <label class="check"><input type="checkbox" data-k="buddy">Good morning, stretch breaks and "it's Friday"</label>
 <label>Stretch break after (minutes at the desk, 0 = never)<input type="number" min="0" max="240" data-k="brk"></label>
 <div class="row"><label>Focus lasts (min; 3 taps)<input type="number" min="1" max="180" data-k="focus"></label><label>then a break of (min, 0 = none)<input type="number" min="0" max="60" data-k="fbrk"></label></div>
 <div class="row"><label>Time and temperature on his face<select data-k="fclk"><option value="0">Never</option><option value="1">Now and then</option><option value="2">Always</option></select></label><label>Now and then: every (min)<input type="number" min="1" max="240" data-k="fclkm"></label></div>
-<small>Also when you pick him up. Below 0 &deg;C he shivers, above 28 &deg;C he sweats (with the weather on).</small>
+<small>Also when you pick him up. Below 0 &deg;C (32 &deg;F) he shivers, above 28 &deg;C (82 &deg;F) he sweats (with the weather on).</small>
 <label>Your birthday (MM-DD)<input data-k="bday" placeholder="05-17" maxlength="5"><small>A party hat, and a "happy birthday" in the morning.</small></label>
 <label class="check"><input type="checkbox" data-k="mic">Listen for claps and noise (loudness only, nothing is recorded or sent)</label></div>
 <div class="card"><h2>Team</h2><p class="sub">Golis next to this one look its way when it rings.</p>

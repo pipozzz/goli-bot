@@ -274,6 +274,7 @@ void getConfig() {
   d["night"] = c.night_off;
   d["fclk"] = c.face_clock;
   d["fclkm"] = c.face_clock_min;
+  d["fahr"] = c.fahrenheit;
   d["lang"] = c.lang;
   d["mqtt_host"] = c.mqtt_host;
   d["mqtt_port"] = c.mqtt_port;
@@ -348,6 +349,7 @@ void setConfig() {
   flag("night", s.night_off);
   num("fclk", s.face_clock, 0, 2);
   num("fclkm", s.face_clock_min, 1, 240);
+  flag("fahr", s.fahrenheit);
   str("lang", s.lang);
   str("mqtt_host", s.mqtt_host);
   num("mqtt_port", s.mqtt_port, 1, 65535);
@@ -606,6 +608,7 @@ void backup() {
   d["night"] = c.night_off;
   d["fclk"] = c.face_clock;
   d["fclkm"] = c.face_clock_min;
+  d["fahr"] = c.fahrenheit;
   d["lang"] = c.lang;
   d["mqtt_host"] = c.mqtt_host;
   d["mqtt_port"] = c.mqtt_port;

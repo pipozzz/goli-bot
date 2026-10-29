@@ -6,6 +6,7 @@
 
 #include "face.h"
 #include "settings.h"
+#include "text.h"
 #include "tls.h"
 
 namespace weather {
@@ -13,14 +14,8 @@ namespace {
 
 volatile uint8_t wear = 0;
 volatile int temp_c = -999;  // bot::kNoTemp
-char text[40] = "";
-portMUX_TYPE lock = portMUX_INITIALIZER_UNLOCKED;  // `text` is read by the main loop and the web page
-
-void setText(const char *t) {
-  portENTER_CRITICAL(&lock);
-  snprintf(text, sizeof text, "%s", t);
-  portEXIT_CRITICAL(&lock);
-}
+const char *volatile rain_note = "";  // ", raining", ", rain later"
+volatile bool fahrenheit = false;
 
 }  // namespace
 
@@ -29,7 +24,6 @@ void poll() {
   if (!cfg.lat.length() || !cfg.lon.length()) {
     wear = 0;
     temp_c = -999;
-    setText("");
     return;
   }
   const String url = "https://api.open-meteo.com/v1/forecast?latitude=" + cfg.lat + "&longitude=" + cfg.lon +
@@ -67,19 +61,24 @@ void poll() {
   if (temp > 28.f) w |= HOT;
   wear = w;
   temp_c = int(lroundf(temp));
-  char t[40];
-  snprintf(t, sizeof t, "%.0f C%s", temp, wet_now ? ", raining" : rain >= 60 ? ", rain later" : "");
-  setText(t);
-  Serial.printf("weather: %s (code %d, rain %d%%)\n", t, wmo, rain);
+  rain_note = wet_now ? ", raining" : rain >= 60 ? ", rain later" : "";
+  Serial.printf("weather: %.1f C (code %d, rain %d%%)\n", temp, wmo, rain);
 }
 
 uint8_t accessories() { return wear; }
 int temperature() { return temp_c; }
 
 void summary(char *out, size_t cap) {
-  portENTER_CRITICAL(&lock);
-  snprintf(out, cap, "%s", text);
-  portEXIT_CRITICAL(&lock);
+  const int c = temp_c;
+  if (c == -999) {
+    *out = 0;
+    return;
+  }
+  tempText(out, cap, c, fahrenheit);
+  const size_t n = strlen(out);
+  snprintf(out + n, cap - n, "%s", (const char *)rain_note);
 }
+
+void setFahrenheit(bool on) { fahrenheit = on; }
 
 }  // namespace weather

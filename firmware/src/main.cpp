@@ -139,6 +139,7 @@ void refreshSettings() {
   if (settings::changes() != cfg_version && settings::tryCopy(cfg)) {
     cfg_version = settings::changes();
     setLanguage(cfg.lang.c_str());
+    weather::setFahrenheit(cfg.fahrenheit);
     // Their tasks (and TLS connections) only when they're used: internal RAM is the scarce kind
     if (cfg.mqtt_host.length() && settings::hasWifi()) mqtt::begin();
     if (cfg.ntfy_url.length() && settings::hasWifi()) ntfy::begin();
@@ -159,6 +160,7 @@ int focusBreak() { return cfg.focus_break; }
 bool nightOff() { return cfg.night_off; }
 int faceClock() { return cfg.face_clock; }
 int faceClockMin() { return cfg.face_clock_min; }
+bool fahrenheit() { return cfg.fahrenheit; }
 const char *birthday() { return cfg.birthday.length() == 5 ? cfg.birthday.c_str() : nullptr; }
 void alerted(AlertLevel level) { team::rang(int(level)); }
 
@@ -460,6 +462,7 @@ void setup() {
   hooks.nightOff = nightOff;
   hooks.faceClock = faceClock;
   hooks.faceClockMin = faceClockMin;
+  hooks.fahrenheit = fahrenheit;
   bot::begin(lv_scr_act(), hooks, millis());
   const time_t t = time(nullptr);  // from the RTC already
   if (t > 1700000000 && prefs.getInt("yfor", 0) == dateOf(t)) bot::yesterday(prefs.getInt("ya"), prefs.getInt("yc"));
