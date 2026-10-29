@@ -52,7 +52,7 @@ code{background:var(--bg);padding:1px 5px;border-radius:5px;word-break:break-all
 <section data-tab="Home">
 <div class="card"><h2>Right now</h2><div class="kv" id="state"></div></div>
 <div class="card"><h2>Play with him</h2><div class="bar">
-<button class="b ghost" onclick="act('poke')">Boop</button><button class="b ghost" onclick="act('focus')">Focus 25 min</button>
+<button class="b ghost" onclick="act('poke')">Boop</button><button class="b ghost" id="focusBtn" onclick="act('focus')">Focus</button>
 <button class="b ghost" onclick="act('demo')">Demo loop</button></div></div>
 <div class="card"><h2>Test an alert</h2><label>Title<input id="t_title" value="Hello from the web page"></label>
 <div class="bar"><button class="b ghost" onclick="testAlert('info')">Something new</button>
@@ -108,6 +108,7 @@ code{background:var(--bg);padding:1px 5px;border-radius:5px;word-break:break-all
 <div class="card"><h2>Desk buddy</h2>
 <label class="check"><input type="checkbox" data-k="buddy">Good morning, stretch breaks and "it's Friday"</label>
 <label>Stretch break after (minutes at the desk, 0 = never)<input type="number" min="0" max="240" data-k="brk"></label>
+<label>Focus mode lasts (minutes; 3 taps on his face)<input type="number" min="1" max="180" data-k="focus"></label>
 <label>Your birthday (MM-DD)<input data-k="bday" placeholder="05-17" maxlength="5"><small>A party hat, and a "happy birthday" in the morning.</small></label>
 <label class="check"><input type="checkbox" data-k="mic">Listen for claps and noise (loudness only, nothing is recorded or sent)</label></div>
 <div class="card"><h2>Team</h2><p class="sub">Golis next to this one look its way when it rings.</p>
@@ -146,7 +147,7 @@ function fill(){for(const el of $$('[data-k]')){const k=el.dataset.k,v=cfg[k];
   el.innerHTML='<option value="">nobody</option>'+peers.map(p=>`<option>${esc(p)}</option>`).join('')}
  if(secrets.includes(k)){el.value='';el.placeholder=cfg['has_'+(k=='gh'?'gh':k=='ics'?'ics':k)]?'unchanged':(k=='ics'?'https://calendar.google.com/...basic.ics':'');continue}
  if(el.type=='checkbox')el.checked=!!v;else el.value=v??''}
- volv.value=cfg.vol;$('#who').textContent=cfg.host+'.local';$('#ver').textContent='Version '+cfg.version;
+ volv.value=cfg.vol;$('#focusBtn').textContent='Focus '+cfg.focus+' min';$('#who').textContent=cfg.host+'.local';$('#ver').textContent='Version '+cfg.version;
  $('#customState').textContent=cfg.custom?'Uploaded: pick "Your own sound" above to use it.':'None yet.';
  $('#curl').textContent=`curl -H "Authorization: Bearer ${cfg.key}" -H "Content-Type: application/json" -d '{"title":"Build failed","level":"critical"}' http://${cfg.host}.local/notify`;
  $('#hookHelp').textContent=`In Goliash add a Webhook channel: URL http://${cfg.host}.local/notify (or my IP), secret ${cfg.key}.`}

@@ -144,6 +144,7 @@ Sound alertSound(AlertLevel level) {
 bool talks() { return cfg.talk; }
 bool buddy() { return cfg.buddy; }
 int breakMin() { return cfg.break_min; }
+int focusMin() { return cfg.focus_min; }
 const char *birthday() { return cfg.birthday.length() == 5 ? cfg.birthday.c_str() : nullptr; }
 void alerted(AlertLevel level) { team::rang(int(level)); }
 
@@ -398,6 +399,7 @@ void setup() {
   hooks.alerted = alerted;
   hooks.dayOver = dayOver;
   hooks.quietHours = goliash::quietHours;
+  hooks.focusMin = focusMin;
   bot::begin(lv_scr_act(), hooks, millis());
   const time_t t = time(nullptr);  // from the RTC already
   if (t > 1700000000 && prefs.getInt("yfor", 0) == dateOf(t)) bot::yesterday(prefs.getInt("ya"), prefs.getInt("yc"));

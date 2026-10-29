@@ -29,7 +29,7 @@ const char *hint_text = nullptr;
 char hint_buf[64];
 Sound sounds[3] = {Sound::CHIRP, Sound::DING, Sound::ALARM};  // by AlertLevel: good, info, critical
 bool talk = false, buddy_on = true, at_desk = false, bday = false;
-int break_min = 50;
+int break_min = 50, focus_min = FOCUS_MIN;
 uint8_t weather_mask = 0;
 char today[6] = "";
 
@@ -60,6 +60,7 @@ Sound alertSound(AlertLevel level) { return sounds[int(level)]; }
 bool talks() { return talk; }
 bool buddy() { return buddy_on; }
 int breakMin() { return break_min; }
+int focusMin() { return focus_min; }
 const char *birthday() {
   if (!bday) return nullptr;
   const time_t t = time(nullptr);
@@ -183,6 +184,7 @@ EMSCRIPTEN_KEEPALIVE void sim_desk(int on, int minutes) {
   at_desk = on;
   break_min = minutes;
 }
+EMSCRIPTEN_KEEPALIVE void sim_focus_min(int m) { focus_min = m; }
 EMSCRIPTEN_KEEPALIVE void sim_knock() { bot::knock(uint32_t(emscripten_get_now())); }
 EMSCRIPTEN_KEEPALIVE void sim_team(int dir) { bot::teamAlert(dir, uint32_t(emscripten_get_now())); }
 EMSCRIPTEN_KEEPALIVE void sim_yesterday(int alerts) { bot::yesterday(alerts, 0); }
@@ -227,6 +229,7 @@ int main() {
   hooks.buddy = buddy;
   hooks.breakMin = breakMin;
   hooks.birthday = birthday;
+  hooks.focusMin = focusMin;
   bot::begin(lv_scr_act(), hooks, uint32_t(emscripten_get_now()));
   bot::meetings(nullptr, 0);
   emscripten_set_main_loop(frame, 0, false);

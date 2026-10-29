@@ -37,6 +37,7 @@ struct Settings {
 
   bool buddy = true;        // good morning, stretch breaks, Friday
   int break_min = 50;       // minutes at the desk before a stretch break (0 = never)
+  int focus_min = FOCUS_MIN;  // focus mode (3 taps)
   String birthday;          // "MM-DD"
 };
 

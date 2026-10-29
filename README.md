@@ -85,7 +85,7 @@ GFX Library for Arduino, SensorLib for touch and IMU, Espressif's ES8311 codec d
 | good news (an agent is back, a drift was resolved) | chirp, happy face, green badge |
 | tap the face | boop: surprised, then happy with blushing cheeks; also marks alerts as seen |
 | 2 quick taps | wink |
-| 3 quick taps | focus mode on / off: 25 minutes, a ring counts down, only critical alerts ring; happy when it's over |
+| 3 quick taps | focus mode (a pomodoro) on / off: 25 minutes by default (set it on the web page), a ring counts down, only critical alerts ring; happy when it's over |
 | 5 quick taps | setup mode (QR code on the screen) |
 | 10 quick taps | demo mode for a booth (any tap stops it) |
 | swipe across the face | Goliash overview → today's meetings → big clock → Goli's day → status |

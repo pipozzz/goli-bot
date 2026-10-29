@@ -265,6 +265,7 @@ void getConfig() {
   d["team_right"] = c.team_right;
   d["buddy"] = c.buddy;
   d["brk"] = c.break_min;
+  d["focus"] = c.focus_min;
   d["bday"] = c.birthday;
   d["key"] = c.api_key;
   d["custom"] = sound::customSamples() > 0;
@@ -326,6 +327,7 @@ void setConfig() {
   str("team_right", s.team_right);
   flag("buddy", s.buddy);
   num("brk", s.break_min, 0, 240);
+  num("focus", s.focus_min, 1, 180);
   str("bday", s.birthday);
   const bool newkey = in["newkey"] | false;
   if (newkey) settings::newKey();

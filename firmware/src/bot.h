@@ -29,6 +29,7 @@ struct Hooks {
   void (*alerted)(AlertLevel level) = nullptr;       // an alert rang here (tell the team)
   void (*dayOver)(int alerts, int critical) = nullptr;  // at midnight: remember today for tomorrow's mood
   bool (*quietHours)() = nullptr;                    // night: no sounds from the desk buddy either
+  int (*focusMin)() = nullptr;                       // how long focus mode lasts (nullptr: FOCUS_MIN)
 };
 
 struct Meeting {

@@ -42,6 +42,7 @@ void ensureKey() {
   prefs.putString("tright", s.team_right);
   prefs.putBool("buddy", s.buddy);
   prefs.putInt("brk", s.break_min);
+  prefs.putInt("focus", s.focus_min);
   prefs.putString("bday", s.birthday);
 }
 
@@ -87,6 +88,7 @@ void load() {
   s.team_right = prefs.getString("tright");
   s.buddy = prefs.getBool("buddy", true);
   s.break_min = prefs.getInt("brk", 50);
+  s.focus_min = prefs.getInt("focus", FOCUS_MIN);
   s.birthday = prefs.getString("bday");
 }
 

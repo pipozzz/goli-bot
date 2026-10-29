@@ -33,6 +33,7 @@ int taps = 0;
 uint32_t last_tap = 0;
 uint32_t page_since = 0;   // when the current swipe page was opened or touched
 uint32_t focus_until = 0;  // focus mode end (0 = off)
+int focus_total_s = 0;     // its length, for the ring
 
 // ---- mood sequencing
 uint32_t last_activity = 0;
@@ -110,9 +111,11 @@ void toggleFocus(uint32_t now) {
     face.setBaseMood(Mood::TIRED);
     sound::play(Sound::BOOP);
   } else {
-    focus_until = now + FOCUS_MIN * 60000UL;
+    const int minutes = hk.focusMin && hk.focusMin() > 0 ? hk.focusMin() : FOCUS_MIN;
+    focus_total_s = minutes * 60;
+    focus_until = now + focus_total_s * 1000UL;
     face.setBaseMood(Mood::FOCUSED);
-    face.setFocus(FOCUS_MIN * 60, FOCUS_MIN * 60);
+    face.setFocus(focus_total_s, focus_total_s);
     sound::play(Sound::CHIRP);
   }
 }
@@ -216,7 +219,7 @@ void tickSecond(uint32_t now) {
       face.setMood(Mood::HAPPY, 3000);
       sound::play(Sound::CHIRP);
     } else {
-      face.setFocus(left, FOCUS_MIN * 60);
+      face.setFocus(left, focus_total_s);
     }
   }
 
