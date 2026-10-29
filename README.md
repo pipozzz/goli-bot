@@ -126,7 +126,7 @@ GFX Library for Arduino, SensorLib for touch and IMU, Espressif's ES8311 codec d
 | nothing happens for a while | every few minutes a glance around, a look at the clock, a silent yawn |
 | rain / sun / frost coming | umbrella / sunglasses / scarf |
 | below 0 °C / above 28 °C outside | a shiver now and then / a drop of sweat |
-| every 15 minutes (web page: never, now and then, always) | the time and the temperature under his mouth for a few seconds |
+| every 15 minutes (web page: never, now and then, always) | the date, the time and the temperature under his mouth for a few seconds |
 | you pick him up | the time and the temperature, like a glance at a watch |
 | your birthday, December | party hat, Santa hat |
 | a Goli next to him rings | he looks that way |

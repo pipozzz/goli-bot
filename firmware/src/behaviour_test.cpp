@@ -266,6 +266,7 @@ int main() {
   face_clock = 2;
   advance(1100);
   CHECK(showing("   12 \u00b0C"), "always: the time and 12 C under his mouth");
+  CHECK(showing("Thu 29 Oct   "), "...after the date");
   face_clock = 0;
   advance(1100);
   CHECK(!showing("12 \u00b0C"), "never: gone");
