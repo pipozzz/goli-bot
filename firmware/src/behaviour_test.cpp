@@ -75,6 +75,18 @@ void taps(int n) {
   advance(700);  // the sequence is over
 }
 
+// Unhurried taps on a panel that never reports the lift: Goli notices it only by the silence
+void slowTaps(int n, uint32_t hold, uint32_t pause) {
+  for (int i = 0; i < n; i++) {
+    for (uint32_t t = 0; t < hold; t += 20) {
+      bot::touch(233, 233, g_fake_millis);
+      advance(20);
+    }
+    advance(pause);
+  }
+  advance(700);
+}
+
 bool heard(Sound s) {
   for (Sound p : played)
     if (p == s) return true;
@@ -194,6 +206,10 @@ int main() {
   taps(3);  // focus on...
   taps(3);  // ...and off again
   CHECK(!st().focus, "three taps again: focus off");
+  slowTaps(3, 260, 380);
+  CHECK(st().focus, "three slow taps, lift noticed late: focus on");
+  taps(3);
+  CHECK(!st().focus, "and off again");
 
   // ---- kitchen timer, through quiet
   bot::quiet(true);

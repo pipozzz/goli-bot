@@ -178,13 +178,15 @@ void swipe(int dx, int dy) {
 }
 
 void releaseTouch(uint32_t now) {
-  const uint32_t held = now - tp.start;
+  // The finger left with the last sample: a lift noticed by the 120 ms timeout is that much late
+  const uint32_t up = tp.last;
+  const uint32_t held = up - tp.start;
   tp.down = false;
   face.setPetting(false);
   const int dx = tp.x1 - tp.x0, dy = tp.y1 - tp.y0;
-  if (!tp.petting && !tp.rotated && held < 350 && tp.travel < 30) {
-    taps = now - last_tap < 500 ? taps + 1 : 1;
-    last_tap = now;
+  if (!tp.petting && !tp.rotated && held < 400 && tp.travel < 30) {
+    taps = taps && tp.start - last_tap < 500 ? taps + 1 : 1;  // the pause between taps, not tap + pause
+    last_tap = up;
     return;
   }
   taps = 0;  // a swipe, a hold or petting is not part of a tap sequence
@@ -212,7 +214,7 @@ void updateTouch(uint32_t now) {
       face.setPetting(true);
     }
   }
-  if (!taps || tp.down || now - last_tap <= 500) return;
+  if (!taps || tp.down || now - last_tap <= 500) return;  // the next tap may still come
 
   // The tap sequence is over
   const int n = taps;

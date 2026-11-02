@@ -183,6 +183,7 @@ void pollTouch(uint32_t now) {
   touch_irq = false;
   int16_t x[1], y[1];
   if (touch.getPoint(x, y, 1)) bot::touch(x[0], y[0], now);
+  else bot::lift(now);  // the controller reports the lift too: don't wait for the timeout
 }
 
 void pollImu(uint32_t now) {
