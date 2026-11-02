@@ -16,6 +16,8 @@ const int kFrames = 256;     // 16 ms at 16 kHz
 volatile bool clap = false, noisy = false;
 volatile int level = -90;
 volatile uint32_t heard_ms = 0;
+int16_t *volatile rec = nullptr;
+volatile size_t rec_n = 0, rec_max = 0;
 
 bool reg(uint8_t r, uint8_t v) {
   Wire.beginTransmission(kAddr);
@@ -67,6 +69,11 @@ void task(void *) {
     if (!sound::readMic(buf, kFrames)) {
       vTaskDelay(pdMS_TO_TICKS(50));
       continue;
+    }
+    if (int16_t *r = rec; r && !sound::playing()) {  // someone is asking him something
+      size_t n = rec_n;
+      for (int i = 0; i < kFrames && n < rec_max; i++) r[n++] = int16_t((int32_t(buf[2 * i]) + buf[2 * i + 1]) / 2);
+      rec_n = n;
     }
     if (!settings::get().listen || sound::playing()) {  // don't hear himself
       onset = loud_since = 0;
@@ -120,6 +127,18 @@ bool takeClap() {
 bool loud() { return noisy; }
 
 int levelDb() { return level; }
+
+void record(int16_t *buf, size_t max) {
+  rec_n = 0;
+  rec_max = max;
+  rec = buf;
+}
+
+size_t stopRecording() {
+  rec = nullptr;
+  vTaskDelay(pdMS_TO_TICKS(20));  // the mic task may be in the middle of a chunk
+  return rec_n;
+}
 
 uint32_t lastSoundMs() { return heard_ms; }
 

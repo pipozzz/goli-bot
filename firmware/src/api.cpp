@@ -283,6 +283,13 @@ void getConfig() {
   d["mqtt_tls"] = c.mqtt_tls;
   d["has_ntfy"] = c.ntfy_url.length() > 0;  // the topic is a secret: never sent back
   d["has_ntfy_token"] = c.ntfy_token.length() > 0;
+  d["has_ai_key"] = c.ai_key.length() > 0;  // keys are never sent back
+  d["ai_model"] = c.ai_model;
+  d["sp_url"] = c.speech_url;
+  d["has_sp_key"] = c.speech_key.length() > 0;
+  d["stt"] = c.stt_model;
+  d["tts"] = c.tts_model;
+  d["voice"] = c.voice;
   d["bday"] = c.birthday;
   d["key"] = c.api_key;
   d["custom"] = sound::customSamples() > 0;
@@ -359,6 +366,13 @@ void setConfig() {
   str("mqtt_user", s.mqtt_user);
   if (in["mqtt_pass"].is<const char *>()) s.mqtt_pass = in["mqtt_pass"].as<const char *>();
   str("bday", s.birthday);
+  if (in["ai_key"].is<const char *>()) s.ai_key = in["ai_key"].as<const char *>(), s.ai_key.trim();
+  str("ai_model", s.ai_model);
+  str("sp_url", s.speech_url);
+  if (in["sp_key"].is<const char *>()) s.speech_key = in["sp_key"].as<const char *>(), s.speech_key.trim();
+  str("stt", s.stt_model);
+  str("tts", s.tts_model);
+  str("voice", s.voice);
   const bool newkey = in["newkey"] | false;
   if (newkey) settings::newKey();
   settings::unlock();
@@ -624,6 +638,13 @@ void backup() {
   d["mqtt_tls"] = c.mqtt_tls;
   d["ntfy"] = c.ntfy_url;
   d["ntfy_token"] = c.ntfy_token;
+  d["ai_key"] = c.ai_key;
+  d["ai_model"] = c.ai_model;
+  d["sp_url"] = c.speech_url;
+  d["sp_key"] = c.speech_key;
+  d["stt"] = c.stt_model;
+  d["tts"] = c.tts_model;
+  d["voice"] = c.voice;
   reminders::Reminder r[12];
   const int n = reminders::list(r, 12);
   JsonArray rem = d["reminders"].to<JsonArray>();

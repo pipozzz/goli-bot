@@ -36,7 +36,7 @@ class Face {
   void showAlert(const char *title, int unseen, AlertLevel level = AlertLevel::INFO);
   void clearAlert();
   void showStatus(const char *text, bool big = false);  // grey line at the bottom (big: the time); nullptr hides it
-  void showTitle(const char *text, uint32_t ms);  // big white line under the mouth for a while
+  void showTitle(const char *text, uint32_t ms, bool paced = false);  // big white line under the mouth for a while (paced: scrolls through it in ms)
   // Battery icon at the top, beside the badge: shown while charging or when low; percent < 0 hides it.
   void showBattery(int percent, bool charging);
   // Night clock under his closed eyes while he sleeps ("23:41"); nullptr hides it.

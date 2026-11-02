@@ -87,6 +87,13 @@ void load() {
   s.mqtt_tls = prefs.getBool("mqtls", false);
   s.ntfy_url = prefs.getString("ntfy");
   s.ntfy_token = prefs.getString("ntfyt");
+  s.ai_key = prefs.getString("aik");
+  s.ai_model = prefs.getString("aim", s.ai_model);
+  s.speech_url = prefs.getString("spu", s.speech_url);
+  s.speech_key = prefs.getString("spk");
+  s.stt_model = prefs.getString("stt", s.stt_model);
+  s.tts_model = prefs.getString("tts", s.tts_model);
+  s.voice = prefs.getString("voi", s.voice);
   s.birthday = prefs.getString("bday");
 }
 
@@ -138,6 +145,13 @@ void save() {
   prefs.putBool("mqtls", s.mqtt_tls);
   prefs.putString("ntfy", s.ntfy_url);
   prefs.putString("ntfyt", s.ntfy_token);
+  prefs.putString("aik", s.ai_key);
+  prefs.putString("aim", s.ai_model);
+  prefs.putString("spu", s.speech_url);
+  prefs.putString("spk", s.speech_key);
+  prefs.putString("stt", s.stt_model);
+  prefs.putString("tts", s.tts_model);
+  prefs.putString("voi", s.voice);
 }
 
 Settings &get() { return s; }

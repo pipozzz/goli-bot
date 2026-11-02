@@ -53,6 +53,14 @@ struct Settings {
   // ntfy: a topic to listen to (https://ntfy.sh/a-secret-topic), and a token for protected topics
   String ntfy_url, ntfy_token;
   String birthday;          // "MM-DD"
+
+  // Ask Goli (tap, then hold and talk): your speech goes to the speech service, the words to Claude.
+  // Off until both keys are set.
+  String ai_key;            // Anthropic API key
+  String ai_model = "claude-opus-5-5";
+  String speech_url = "https://api.openai.com/v1";  // OpenAI-compatible: /audio/transcriptions, /audio/speech
+  String speech_key;
+  String stt_model = "whisper-1", tts_model = "tts-1", voice = "alloy";
 };
 
 namespace settings {

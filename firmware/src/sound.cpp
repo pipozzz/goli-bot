@@ -41,28 +41,37 @@ bool loadCustom() {
   return custom_n > 0;
 }
 
-// Next chunk of the custom sound
-bool renderCustom(int pos, int len, int16_t *out) {
-  for (int i = 0; i < len; i++) out[i] = size_t(pos + i) < custom_n ? custom[pos + i] : 0;
-  return size_t(pos + len) < custom_n;
+// A buffer from playPcm(): handed over with the next CUSTOM in the queue
+const int16_t *volatile next_pcm = nullptr;
+volatile size_t next_pcm_n = 0;
+
+// Next chunk of a PCM buffer
+bool renderPcm(const int16_t *pcm, size_t n, int pos, int len, int16_t *out) {
+  for (int i = 0; i < len; i++) out[i] = size_t(pos + i) < n ? pcm[pos + i] : 0;
+  return size_t(pos + len) < n;
 }
 
 void task(void *) {
   int16_t mono[kChunk];
   int16_t stereo[kChunk * 2];
   Sound cur = Sound::DING;
+  const int16_t *pcm = nullptr;
+  size_t pcm_n = 0;
   int pos = -1;  // -1: idle
   for (;;) {
     Sound next;
     if (xQueueReceive(queue, &next, pos < 0 ? portMAX_DELAY : 0) == pdTRUE) {
       cur = next;
+      pcm = next_pcm ? next_pcm : custom;
+      pcm_n = next_pcm ? next_pcm_n : custom_n;
+      next_pcm = nullptr;
       pos = 0;
       quiet_since = 0;
       stopping = false;
       digitalWrite(AUDIO_PA_EN, HIGH);  // speaker amplifier on only while playing (no hiss)
     }
     if (pos < 0) continue;
-    const bool more = !stopping && (cur == Sound::CUSTOM ? renderCustom(pos, kChunk, mono)
+    const bool more = !stopping && (cur == Sound::CUSTOM ? renderPcm(pcm, pcm_n, pos, kChunk, mono)
                                                          : synth::render(cur, pos, kChunk, mono));
     if (stopping) memset(mono, 0, sizeof mono);
     for (int i = 0; i < kChunk; i++) stereo[2 * i] = stereo[2 * i + 1] = mono[i];
@@ -114,6 +123,16 @@ bool begin() {
 void play(Sound s) {
   if (!queue || volume == 0 || s == Sound::NONE || (s == Sound::CUSTOM && !custom_n)) return;
   xQueueReset(queue);
+  next_pcm = nullptr;
+  xQueueSend(queue, &s, 0);
+}
+
+void playPcm(const int16_t *pcm, size_t samples) {
+  if (!queue || volume == 0 || !samples) return;
+  xQueueReset(queue);
+  next_pcm_n = samples;
+  next_pcm = pcm;
+  const Sound s = Sound::CUSTOM;
   xQueueSend(queue, &s, 0);
 }
 

@@ -132,6 +132,7 @@ GFX Library for Arduino, SensorLib for touch and IMU, Espressif's ES8311 codec d
 | 3 quick taps | focus mode (a pomodoro) on / off: 25 minutes by default, a blue ring counts down, only critical alerts ring; happy when it's over, then a 5-minute break with a green ring and "back to it?" (both lengths on the web page; 3 taps skip a break) |
 | 5 quick taps | setup mode (QR code on the screen) |
 | 10 quick taps | demo mode for a booth (any tap stops it) |
+| tap, then hold and talk | ask him something: he listens while the finger stays and answers out loud (with API keys, see *Ask Goli*) |
 | swipe across the face | latest alerts → Goliash overview → today's meetings → big clock → Goli's day → status |
 | knock twice on the desk | snooze: alerts stay silent for 10 minutes |
 | a meeting in 10 minutes | an amber ring counts down, its name under his mouth; a ding when it starts |
@@ -175,7 +176,27 @@ before Wi-Fi is up.
 
 The board has two microphones. Goli only measures how loud it is, on the device; nothing is recorded or
 sent, and he ignores his own sounds. A clap marks alerts as seen; a noisy room makes him wince.
-Turn it off on the web page.
+Turn it off on the web page. The one exception is *Ask Goli* below, and only while your finger holds him.
+
+### Ask Goli
+
+Tap him, then keep the finger on him and ask something; let go when you're done (up to 12 s). He boops,
+shows *listening...*, then *hmm...*, and answers out loud in his language while the answer scrolls across
+his face. He remembers the last three questions for five minutes, so "and tomorrow?" works.
+
+It needs two API keys, set in the *Ask Goli* card on the **Goli** tab of his web page:
+
+- an **Anthropic** key for the answers (Claude, `claude-opus-5-5` by default, at low effort for a quick
+  reply; a declined question falls back to another model on Anthropic's side);
+- a key for an **OpenAI-compatible speech service** that turns your voice into text and the answer into
+  his voice (OpenAI by default: `whisper-1` and `tts-1` with the `alloy` voice; the address and models
+  can be changed).
+
+What you said while holding him goes to the speech service as audio and to Anthropic as text; nothing
+else is recorded. Both services bill your accounts: a question costs about a cent with the defaults. The keys are
+never shown back on the web page (they are in the backup file). Without both keys, tap and hold is
+petting, as before. The screen has no accents, so Slovak, Czech and German answers show without them,
+but he says them properly.
 
 ### His day
 
@@ -348,11 +369,11 @@ everything is there:
 - **Sounds:** a sound per kind of alert with a play button, Goli talks, volume, quiet hours, your own sound.
 - **Alerts:** Goliash (optional), which alerts ring, GitHub, URLs to keep an eye on, the key for scripts.
 - **Day:** calendar, weather, desk buddy, birthday, the microphones, the team.
-- **Goli:** Wi-Fi, Home Assistant, language, night, updates, **install a firmware file** (`goli-app.bin`
+- **Goli:** Ask Goli (API keys), Wi-Fi, Home Assistant, language, night, updates, **install a firmware file** (`goli-app.bin`
   from a release, or your own build: no USB needed once he's assembled), **backup and restore** (every
   setting and reminder, secrets included, in one JSON file), restart, setup mode, forget this browser.
 
-Secrets (Wi-Fi password, tokens, the calendar address) are never shown back. The setup hotspot (tap 5
+Secrets (Wi-Fi password, tokens, API keys, the calendar address) are never shown back. The setup hotspot (tap 5
 times) still works for the first setup or a new Wi-Fi.
 
 ### Sources

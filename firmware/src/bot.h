@@ -37,7 +37,12 @@ struct Hooks {
   int (*faceClock)() = nullptr;                      // time and temperature on his face: 0 never, 1 now and then, 2 always
   int (*faceClockMin)() = nullptr;                   // "now and then": every this many minutes (nullptr: 15)
   bool (*fahrenheit)() = nullptr;                    // °F instead of °C
+  void (*talk)(bool start) = nullptr;                // tap, then hold: you talk to him while the finger stays (nullptr: off)
+  bool (*canTalk)() = nullptr;                       // is anyone listening (API keys set)? (nullptr: yes)
 };
+
+// Asking Goli something (tap, then hold and talk), as the firmware's chat goes through it
+enum class Chat : uint8_t { IDLE, LISTENING, THINKING, SPEAKING, FAILED };
 
 const int kNoTemp = -999;  // the temperature isn't known
 
@@ -68,6 +73,8 @@ void teamAlert(int dir, uint32_t now);    // a Goli next to him rang: look that 
 void yesterday(int alerts, int critical); // how rough yesterday was (how tired he wakes up)
 void pages(bool goliash);                 // which swipe pages make sense
 void say(const char *text, uint32_t ms, uint32_t now);  // a short message under his mouth
+// SPEAKING: `text` is his answer, shown for `ms`; FAILED: what went wrong (a few words)
+void chat(Chat phase, const char *text, uint32_t ms, uint32_t now);
 
 // From the web page
 void poke(uint32_t now);            // like a tap

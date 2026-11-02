@@ -567,8 +567,15 @@ void Face::clearAlert() {
   lv_obj_add_flag(title_, LV_OBJ_FLAG_HIDDEN);
 }
 
-void Face::showTitle(const char *text, uint32_t ms) {
+void Face::showTitle(const char *text, uint32_t ms, bool paced) {
   lv_label_set_text(title_, text);
+  int speed = 0;  // LVGL's default scroll speed
+  if (paced && ms) {  // scroll through all of it while he says it
+    lv_point_t size;
+    lv_txt_get_size(&size, text, &lv_font_montserrat_28, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+    speed = std::max<int>(30, int(int64_t(size.x) * 1000 / ms));
+  }
+  lv_obj_set_style_anim_speed(title_, speed, 0);
   lv_obj_clear_flag(title_, LV_OBJ_FLAG_HIDDEN);
   title_until_ = millis() + ms;
 }

@@ -25,6 +25,8 @@ std::vector<Sound> played;
 bool setup_called = false, quiet_hours = false, buddy_on = false;
 int face_clock = 1, face_clock_min = 15;
 bool fahrenheit = false;
+int talk_on = 0, talk_off = 0;
+bool chat_keys = true;
 int brightness = -1;
 int failures = 0, checks = 0;
 
@@ -160,6 +162,8 @@ int main() {
   hooks.faceClock = [] { return face_clock; };
   hooks.faceClockMin = [] { return face_clock_min; };
   hooks.fahrenheit = [] { return fahrenheit; };
+  hooks.talk = [](bool start) { (start ? talk_on : talk_off)++; };
+  hooks.canTalk = [] { return chat_keys; };
   bot::begin(lv_scr_act(), hooks, g_fake_millis);
   advance(1000);
 
@@ -210,6 +214,37 @@ int main() {
   CHECK(st().focus, "three slow taps, lift noticed late: focus on");
   taps(3);
   CHECK(!st().focus, "and off again");
+
+  // ---- asking him something: a tap, then hold and talk
+  advance(2000);
+  played.clear();
+  press(60);
+  advance(150);
+  press(1500);
+  advance(700);
+  CHECK(talk_on == 1 && talk_off == 1, "tap, then hold: he listens until the finger leaves (%d/%d)", talk_on, talk_off);
+  CHECK(!heard(Sound::BOOP) && !heard(Sound::CHIRP) && !st().focus, "...and it's not a tap");
+  bot::chat(bot::Chat::LISTENING, "", 0, g_fake_millis);
+  advance(100);
+  CHECK(showing("listening..."), "listening");
+  bot::chat(bot::Chat::SPEAKING, "Ahoj, ja som Goli.", 4000, g_fake_millis);
+  advance(500);
+  CHECK(showing("Ahoj, ja som Goli.") && !showing("listening..."), "his answer on his face");
+  advance(4000);
+  CHECK(!showing("Ahoj, ja som Goli."), "...for as long as he says it");
+  bot::chat(bot::Chat::FAILED, "Claude key?", 0, g_fake_millis);
+  advance(100);
+  CHECK(showing("no answer: Claude key?"), "what went wrong");
+  bot::chat(bot::Chat::FAILED, "", 0, g_fake_millis);
+  advance(100);
+  CHECK(showing("didn't catch that"), "nothing heard");
+  advance(5000);
+  chat_keys = false;
+  press(60);
+  advance(150);
+  press(1500);
+  advance(700);
+  CHECK(talk_on == 1, "without API keys a tap and hold stays petting");
 
   // ---- kitchen timer, through quiet
   bot::quiet(true);

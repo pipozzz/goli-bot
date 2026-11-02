@@ -96,6 +96,10 @@ const char *const kText[int(Txt::COUNT)][kLangCount] = {
     {"timer %d:%02d", "minutka %d:%02d", "minutka %d:%02d", "Timer %d:%02d"},  // TIMER
     {"time's up!", "cas vyprsal!", "cas vyprsel!", "Zeit ist um!"},  // TIMES_UP
     {"quiet", "ticho", "ticho", "Ruhe"},  // QUIET
+    {"listening...", "pocuvam...", "posloucham...", "ich hore zu..."},  // LISTENING
+    {"hmm...", "hmm...", "hmm...", "hmm..."},  // THINKING
+    {"didn't catch that", "nepocul som", "neslysel jsem", "nicht verstanden"},  // NOT_HEARD
+    {"no answer: %s", "bez odpovede: %s", "bez odpovedi: %s", "keine Antwort: %s"},  // NO_ANSWER
 };
 
 const char *const kDays[kLangCount][7] = {

@@ -137,6 +137,14 @@ code{background:var(--bg);padding:1px 5px;border-radius:5px;word-break:break-all
 </section>
 
 <section data-tab="Goli">
+<div class="card"><h2>Ask Goli</h2><p class="sub">Tap him, then keep the finger on him and talk; let go when you're done. What you said goes to the speech service, the words to Claude, and he answers out loud. Off until both keys are set.</p>
+<label>Anthropic API key<input data-k="ai_key" type="password" placeholder="sk-ant-..." autocomplete="off"><small>From console.anthropic.com. Leave empty to keep; type <code>-</code> to remove.</small></label>
+<label>Claude model<input data-k="ai_model" placeholder="claude-opus-5-5" autocapitalize="none"></label>
+<label>Speech service (OpenAI-compatible)<input data-k="sp_url" placeholder="https://api.openai.com/v1" autocapitalize="none"></label>
+<label>Speech API key<input data-k="sp_key" type="password" placeholder="sk-..." autocomplete="off"><small>Hears you (speech to text) and gives him a voice (text to speech).</small></label>
+<label>Speech to text model<input data-k="stt" placeholder="whisper-1" autocapitalize="none"></label>
+<label>Voice model<input data-k="tts" placeholder="tts-1" autocapitalize="none"></label>
+<label>Voice<input data-k="voice" placeholder="alloy" autocapitalize="none"></label></div>
 <div class="card"><h2>Wi-Fi</h2>
 <label>Network<input data-k="ssid" autocapitalize="none"></label>
 <label>Password<input data-k="pass" type="password" placeholder="unchanged" autocomplete="off"></label><small>Changing Wi-Fi takes a restart.</small></div>
@@ -173,7 +181,7 @@ async function pairStart(){try{await fetch('/api/pair/start',{method:'POST'});to
 async function pair(){const r=await fetch('/api/pair',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:+$('#code').value})});
  const d=await r.json().catch(()=>({}));if(!r.ok)return toast(d.error||'wrong code');token=d.token;localStorage.setItem('goli',token);start()}
 function unpair(){localStorage.removeItem('goli');token='';showPair()}
-const secrets=['token','gh','ics','pass','mqtt_pass','ntfy','ntfy_token'];
+const secrets=['token','gh','ics','pass','mqtt_pass','ntfy','ntfy_token','ai_key','sp_key'];
 function fill(){for(const el of $$('[data-k]')){const k=el.dataset.k,v=cfg[k];
  if(el.tagName=='SELECT'&&k.startsWith('snd_')){el.innerHTML=cfg.sounds.map(s=>`<option value="${s.name}">${s.label}</option>`).join('')}
  if(el.tagName=='SELECT'&&k.startsWith('team_')){const peers=[...new Set([...(state.peers||[]),cfg.team_left,cfg.team_right].filter(Boolean))];

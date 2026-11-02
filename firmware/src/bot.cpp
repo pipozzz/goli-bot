@@ -26,7 +26,7 @@ struct {
   bool down = false;
   uint32_t start = 0, last = 0;
   int16_t x0 = 0, y0 = 0, x1 = 0, y1 = 0, travel = 0;
-  bool petting = false, rotated = false;
+  bool petting = false, rotated = false, talking = false;
 } tp;
 
 // Quick taps in a row: 1 = boop, 2 = wink, FOCUS_TAPS = focus, SETUP_TAPS = setup, DEMO_TAPS = demo
@@ -185,6 +185,10 @@ void releaseTouch(uint32_t now) {
   const uint32_t held = up - tp.start;
   tp.down = false;
   face.setPetting(false);
+  if (tp.talking) {  // done talking: off it goes
+    hk.talk(false);
+    return;
+  }
   const int dx = tp.x1 - tp.x0, dy = tp.y1 - tp.y0;
   if (!tp.petting && !tp.rotated && held < 400 && tp.travel < 30) {
     taps = taps && tp.start - last_tap < 500 ? taps + 1 : 1;  // the pause between taps, not tap + pause
@@ -205,6 +209,13 @@ void updateTouch(uint32_t now) {
       releaseTouch(now);
       return;
     }
+    if (!tp.talking && !tp.petting && !tp.rotated && taps == 1 && hk.talk && (!hk.canTalk || hk.canTalk()) && held > 450 && tp.travel < 30 &&
+        tp.start - last_tap < 500) {  // a tap, then a hold: he listens while the finger stays
+      tp.talking = true;
+      taps = 0;
+      hk.talk(true);
+    }
+    if (tp.talking) return;
     if (!tp.rotated && tp.travel < 25 && held > ROTATE_HOLD_MS) {
       tp.rotated = true;
       face.setPetting(false);
@@ -728,6 +739,39 @@ void say(const char *text, uint32_t ms, uint32_t now) {
   snprintf(said, sizeof said, "%s", text);
   said_until = now + ms;
   face.showStatus(said);
+}
+
+void chat(Chat phase, const char *text, uint32_t ms, uint32_t now) {
+  wake(now);
+  switch (phase) {
+    case Chat::LISTENING:
+      face.setMood(Mood::SURPRISED, 20000);  // all ears
+      say(tr(Txt::LISTENING), 20000, now);
+      break;
+    case Chat::THINKING:
+      face.setMood(Mood::FOCUSED, 30000);
+      say(tr(Txt::THINKING), 30000, now);
+      break;
+    case Chat::SPEAKING: {
+      char ascii[sizeof said * 8];
+      foldAscii(text ? text : "", ascii, sizeof ascii);
+      face.setMood(Mood::HAPPY, ms);
+      face.showTitle(ascii, ms, true);
+      said_until = 0;
+      face.showStatus(nullptr);
+      break;
+    }
+    case Chat::FAILED: {
+      char line[sizeof said];
+      snprintf(line, sizeof line, tr(Txt::NO_ANSWER), text ? text : "?");
+      face.setMood(Mood::TIRED, 3000);
+      say(text && !*text ? tr(Txt::NOT_HEARD) : line, 4000, now);
+      break;
+    }
+    case Chat::IDLE:
+      said_until = 0;
+      break;
+  }
 }
 
 void poke(uint32_t now) {

@@ -27,6 +27,7 @@
 #include "config.h"
 #include "goliash.h"
 #include "improv.h"
+#include "chat.h"
 #include "mic.h"
 #include "motion.h"
 #include "mqtt.h"
@@ -414,6 +415,7 @@ void setup() {
   sound_ok = sound::begin();
   if (!sound_ok) Serial.println("audio init failed");
   mic_ok = sound_ok && mic::begin();
+  if (mic_ok && !chat::begin()) Serial.println("chat: no PSRAM for the audio");
   if (!mic_ok) Serial.println("mic init failed");
   power_ok = power::begin();
   if (!power_ok) Serial.println("PMU init failed");
@@ -464,6 +466,8 @@ void setup() {
   hooks.faceClock = faceClock;
   hooks.faceClockMin = faceClockMin;
   hooks.fahrenheit = fahrenheit;
+  hooks.canTalk = chat::ready;
+  hooks.talk = [](bool start) { start ? chat::listen() : chat::send(); };
   bot::begin(lv_scr_act(), hooks, millis());
   const time_t t = time(nullptr);  // from the RTC already
   if (t > 1700000000 && prefs.getInt("yfor", 0) == dateOf(t)) bot::yesterday(prefs.getInt("ya"), prefs.getInt("yc"));
@@ -491,6 +495,10 @@ void loop() {
   pollPower(now);
   improv::loop();
   rtc::maintain(now);
+  bot::Chat phase;
+  const char *said;
+  uint32_t said_ms;
+  if (chat::poll(phase, said, said_ms)) bot::chat(phase, said, said_ms, now);
   bot::update(now);
   lv_timer_handler();
   delay(5);

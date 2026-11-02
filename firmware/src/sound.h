@@ -35,5 +35,7 @@ bool readMic(int16_t *stereo, size_t frames);  // microphone frames (mic 1 / mic
 // The custom sound: 16 kHz mono PCM (the web page converts any file), kept in flash
 bool setCustom(const int16_t *pcm, size_t samples);
 size_t customSamples();
+// 16 kHz mono PCM the caller keeps alive until it has played (Goli's spoken answers); like play()
+void playPcm(const int16_t *pcm, size_t samples);
 
 }  // namespace sound
