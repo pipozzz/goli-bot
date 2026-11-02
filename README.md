@@ -38,7 +38,7 @@ plate in 52 min.
 | 3× M2×6 machine screws | Bracket → the board's M2 nuts |
 | 3× M2×6 self-tapping screws | Bracket → bezel |
 | 3× M2×8 self-tapping screws | Back plate → body |
-| USB-C cable | Goes through the slot in the back plate. A right-angle plug fits best. |
+| USB-C cable with a **right-angle (90°) plug** | The board's port points down inside the face socket, so a straight plug doesn't fit. The plug's head may reach 8 mm from the port and be up to 13 × 7.5 mm; the cable then runs backwards inside him and out through the slot in the back plate. Up- or down-angled both work (USB-C plugs in either way round). A 90° USB-C adapter of the same size works too. |
 | Optional: 3.7 V LiPo, 1000 mAh, size **103450** (50 × 34 × 10 mm), MX1.25 plug (Goli mini: **803040**, 40 × 30 × 8 mm) | Lies on a cradle in the base (three rails and stops, printed with the body); a strip of double-sided tape holds it. The board's power button is inside the body, so plan for USB power or leave the board on. On battery the screen goes dark after he has slept for 30 min; touch or move him to wake him. |
 
 ## Print
@@ -107,8 +107,9 @@ so Bambu Studio must be installed.
 1. Glue the speaker behind the belly grille, with the plug pointing up.
 2. Drop the display into the bezel from behind, glass first. The lip holds the glass by its black border.
 3. Screw the bracket to the board's three back nuts (M2×6). The board's USB-C port points **down**, through
-   the notch in the bezel.
-4. Push the bezel into the face socket from the front. From inside, screw the bracket to the bezel tube
+   the notch in the bezel. Plug in the right-angle USB-C cable now, its cable pointing backwards.
+4. Feed the cable in through the face opening and push the bezel into the face socket from the front: the
+   plug's head goes into the pocket under the opening. From inside, screw the bracket to the bezel tube
    (3× M2×6 self-tapping). The body wall is clamped between the bezel and the bracket.
 5. Plug in the speaker. With a battery: stick it onto the cradle in the base (label up, cable towards the
    back) and plug it into BAT. Route the USB-C cable down and out through the back plate slot.

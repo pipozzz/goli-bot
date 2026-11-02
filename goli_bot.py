@@ -41,6 +41,8 @@ NUT_DEPTH = 10.4        # glass front -> back nut tops
 DISP_ROT = -90          # board rotated so USB-C points down
 PCB_NUTS = [(0, 20.5), (13.75, -14.7), (-13.75, -14.7)]
 USB_HALF_W = 7.0        # plug clearance
+PORT_R = 24.6           # the USB-C port's mouth, from the display's centre
+USB_POCKET = (15.0, 9.0)  # in the body: width, and how far below the port (a right-angle plug's head)
 
 # optional battery: a 1000 mAh LiPo, size 103450 (50 x 34 x 10 mm), on a cradle above the floor's curve
 BATTERY = (50.0, 34.0, 10.0)
@@ -391,6 +393,9 @@ def build():
     body = body - face_clear + socket + socket_inside
     body = body - (cavity - fixings - socket_inside - place(local_cyl(SOCKET_R, TUBE_BACK, 0)))
     body = body - bore - screw_holes - grille
+    # USB-C: the board's port points down, so its plug sits in the face socket's wall. A pocket under the
+    # bore (open to the inside) takes a right-angle plug's head, and its cable leaves backwards.
+    body = body - place(box(-USB_POCKET[0] / 2, USB_POCKET[0] / 2, TUBE_BACK - 6, -2.6, -(PORT_R + USB_POCKET[1]), -BORE_R + 0.5))
     body = body - Manifold.batch_boolean(toes, OpType.Add)
     body = body ^ ground ^ behind
     # USB / power cable notch is in the back plate; nothing else here
