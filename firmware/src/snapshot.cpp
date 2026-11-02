@@ -69,7 +69,7 @@ int main() {
       {Mood::ALARMED, "10_critical", false}, {Mood::HAPPY, "11_good news", false}, {Mood::TIRED, "12_low battery", false},
       {Mood::FOCUSED, "13_focus", false},    {Mood::WINCE, "14_too loud", false},  {Mood::ASLEEP, "15_night clock", false},
       {Mood::TIRED, "16_rain coming", false}, {Mood::HAPPY, "17_sunny", false},    {Mood::TIRED, "18_meeting soon", false},
-      {Mood::HAPPY, "19_birthday", false},   {Mood::WINK, "20_december", false},
+      {Mood::HAPPY, "19_birthday", false},   {Mood::WINK, "20_december", false},   {Mood::HAPPY, "21_time", false},
   };
   for (auto &s : shots) {
     if (!strcmp(s.name, "09_goliash")) face.showAlert("checkout 2.4.1", 1, AlertLevel::INFO);
@@ -99,6 +99,10 @@ int main() {
       face.setAccessories(PARTY_HAT);
     }
     if (!strcmp(s.name, "20_december")) face.setAccessories(SANTA_HAT | SCARF);
+    if (!strcmp(s.name, "21_time")) {
+      face.setAccessories(0);
+      face.showStatus("14:32   12 \xc2\xb0""C\nThu 29 Oct", true);
+    }
     face.setPetting(s.pet);
     face.setMood(s.m);
     run(face, 1200);

@@ -35,7 +35,7 @@ class Face {
   // unseen one wins), and the newest title scrolling under the mouth.
   void showAlert(const char *title, int unseen, AlertLevel level = AlertLevel::INFO);
   void clearAlert();
-  void showStatus(const char *text);  // small grey hint at the bottom; nullptr hides it
+  void showStatus(const char *text, bool big = false);  // grey line at the bottom (big: the time); nullptr hides it
   void showTitle(const char *text, uint32_t ms);  // big white line under the mouth for a while
   // Battery icon at the top, beside the badge: shown while charging or when low; percent < 0 hides it.
   void showBattery(int percent, bool charging);
@@ -88,6 +88,7 @@ class Face {
   int unseen_ = 0;
   AlertLevel level_ = AlertLevel::GOOD;
   uint32_t title_until_ = 0;
+  bool status_big_ = false;
   lv_point_t mouth_pts_[24];
 
   Mood mood_ = Mood::TIRED, base_ = Mood::TIRED;

@@ -573,8 +573,15 @@ void Face::showTitle(const char *text, uint32_t ms) {
   title_until_ = millis() + ms;
 }
 
-void Face::showStatus(const char *text) {
-  if (!text) {
+void Face::showStatus(const char *text, bool big) {
+  if (big != status_big_) {  // the time and date: two lines, big enough to read from the chair
+    status_big_ = big;
+    lv_obj_set_style_text_font(status_, big ? &lv_font_montserrat_28 : &lv_font_montserrat_14, 0);
+    lv_obj_set_width(status_, big ? 300 : 240);
+    lv_obj_set_pos(status_, big ? kC - 150 : kC - 120, big ? 370 : 420);
+  }
+  if (!text || (big && title_until_)) {  // an alert's title sits there
+
     lv_obj_add_flag(status_, LV_OBJ_FLAG_HIDDEN);
     return;
   }

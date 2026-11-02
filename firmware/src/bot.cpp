@@ -108,16 +108,18 @@ int faceClock() { return hk.faceClock ? hk.faceClock() : 1; }
 
 bool fahrenheit() { return hk.fahrenheit && hk.fahrenheit(); }
 
-// "Thu 29 Oct   14:32   12 °C" for the line under his mouth; false without a clock
+// "14:32   12 °C" over "Thu 29 Oct" under his mouth; false without a clock
 bool clockLine(char *out, size_t cap) {
   struct tm lt;
   if (!localTime(lt)) return false;
-  dateText(lt, out, cap);
-  size_t n = strlen(out);
-  n += strftime(out + n, cap - n, "   %H:%M", &lt);
-  if (temp_now == kNoTemp) return true;
-  n += snprintf(out + n, cap - n, "   ");
-  tempText(out + n, cap - n, temp_now, fahrenheit());
+  size_t n = strftime(out, cap, "%H:%M", &lt);
+  if (temp_now != kNoTemp) {
+    n += snprintf(out + n, cap - n, "   ");
+    tempText(out + n, cap - n, temp_now, fahrenheit());
+    n = strlen(out);
+  }
+  n += snprintf(out + n, cap - n, "\n");
+  dateText(lt, out + n, cap - n);
   return true;
 }
 
@@ -331,8 +333,11 @@ void tickSecond(uint32_t now) {
     char clk[48] = "";
     if (glancing || fc == 2) clockLine(clk, sizeof clk);
     if (said_until && int32_t(said_until - now) > 0) face.showStatus(said);
-    else face.showStatus(hint ? hint : *pause ? pause : glancing && *clk ? clk : in_meeting ? tr(Txt::IN_MEETING) :
-                         quiet_on ? tr(Txt::QUIET) : *clk ? clk : nullptr);
+    else {
+      const char *line = hint ? hint : *pause ? pause : glancing && *clk ? clk : in_meeting ? tr(Txt::IN_MEETING) :
+                         quiet_on ? tr(Txt::QUIET) : *clk ? clk : nullptr;
+      face.showStatus(line, line && line == clk);
+    }
   }
 
   const time_t t = wallClock();
