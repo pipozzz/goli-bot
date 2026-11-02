@@ -10,6 +10,10 @@ namespace {
 
 const float PI = 3.14159265f;
 
+// sin(2π · cycles). The whole cycles go first: sinf() on the ESP32 takes a slow path for arguments
+// past ~200, and a bell's eight partials a second into the ring were too slow for the speaker (it stuttered).
+float wave(float cycles) { return sinf(2.f * PI * (cycles - floorf(cycles))); }
+
 // One voice: a sum of decaying partials, optionally with a pitch glide.
 struct Partial {
   float ratio, amp, decay_s;
@@ -27,7 +31,7 @@ float bell(float t, float f0) {
   };
   if (t < 0.f) return 0.f;
   float v = 0.f;
-  for (const auto &p : partials) v += p.amp * env(t, 0.002f, p.decay_s) * sinf(2.f * PI * f0 * p.ratio * t);
+  for (const auto &p : partials) v += p.amp * env(t, 0.002f, p.decay_s) * wave(f0 * p.ratio * t);
   return v;
 }
 
@@ -39,15 +43,15 @@ float shipBell(float t) {
   };
   if (t < 0.f) return 0.f;
   float v = 0.f;
-  for (const auto &p : partials) v += p.amp * env(t, 0.003f, p.decay_s) * sinf(2.f * PI * 587.3f * p.ratio * t);
+  for (const auto &p : partials) v += p.amp * env(t, 0.003f, p.decay_s) * wave(587.3f * p.ratio * t);
   return v;
 }
 
 // A marimba bar: fundamental plus the bar's 4x and 10x partials, quickly gone
 float marimba(float t, float f) {
   if (t < 0.f) return 0.f;
-  return env(t, 0.002f, 0.32f) * sinf(2.f * PI * f * t) + 0.35f * env(t, 0.001f, 0.06f) * sinf(2.f * PI * 3.93f * f * t) +
-         0.12f * env(t, 0.001f, 0.025f) * sinf(2.f * PI * 9.2f * f * t);
+  return env(t, 0.002f, 0.32f) * wave(f * t) + 0.35f * env(t, 0.001f, 0.06f) * wave(3.93f * f * t) +
+         0.12f * env(t, 0.001f, 0.025f) * wave(9.2f * f * t);
 }
 
 float square(float phase, float duty) { return fmodf(phase, 1.f) < duty ? 1.f : -1.f; }
@@ -83,7 +87,7 @@ float syllable(float t, float dur, const Vowel &a, const Vowel &b, float p0, flo
   const float phase = p0 * t + (p1 - p0) * t * t / (2.f * dur);  // integral of the pitch glide
   const float pitch = p0 + (p1 - p0) * u;
   float s = 0.f;
-  for (int k = 1; k * pitch < 3600.f; k++) s += formantGain(k * pitch, v, nasal) / k * sinf(2.f * PI * k * phase);
+  for (int k = 1; k * pitch < 3600.f; k++) s += formantGain(k * pitch, v, nasal) / k * wave(k * phase);
   const float amp = fminf(1.f, t / 0.03f) * fminf(1.f, (dur - t) / 0.08f);
   return amp * s;
 }
@@ -132,23 +136,23 @@ bool render(Sound s, int n0, int len, int16_t *out) {
         break;
       case Sound::BOOP: {  // quick rising "bup"
         const float f = 420.f + 900.f * t / dur;
-        v = 0.8f * env(t, 0.004f, 0.06f) * sinf(2.f * PI * f * t);
+        v = 0.8f * env(t, 0.004f, 0.06f) * wave(f * t);
         break;
       }
       case Sound::CHIRP: {  // two happy notes
         const float f = t < 0.14f ? 1046.5f : 1568.f;
         const float tt = t < 0.14f ? t : t - 0.14f;
-        v = 0.55f * env(tt, 0.004f, 0.07f) * sinf(2.f * PI * f * t);
+        v = 0.55f * env(tt, 0.004f, 0.07f) * wave(f * t);
         break;
       }
       case Sound::WOBBLE: {  // dizzy warble sliding down
-        const float f = 700.f - 300.f * t / dur + 90.f * sinf(2.f * PI * 11.f * t);
-        v = 0.45f * (1.f - t / dur) * sinf(2.f * PI * f * t);
+        const float f = 700.f - 300.f * t / dur + 90.f * wave(11.f * t);
+        v = 0.45f * (1.f - t / dur) * wave(f * t);
         break;
       }
       case Sound::YAWN: {  // low, slow glide down with a soft attack
         const float f = 330.f - 140.f * t / dur;
-        v = 0.5f * sinf(PI * t / dur) * (sinf(2.f * PI * f * t) + 0.3f * sinf(4.f * PI * f * t));
+        v = 0.5f * sinf(PI * t / dur) * (wave(f * t) + 0.3f * wave(2.f * f * t));
         break;
       }
       case Sound::SHIP:  // two strikes, like a ship's bell telling the watch
@@ -174,12 +178,12 @@ bool render(Sound s, int n0, int len, int16_t *out) {
           const float tt = t - at;
           if (tt < 0.f) continue;
           const float f = 600.f + 1000.f * (1.f - expf(-tt / 0.03f));
-          v += (at ? 0.4f : 0.7f) * expf(-tt / 0.06f) * sinf(2.f * PI * f * tt);
+          v += (at ? 0.4f : 0.7f) * expf(-tt / 0.06f) * wave(f * tt);
         }
         break;
       }
       case Sound::WHISPER:  // a soft "pff" and a tiny tick, for an office
-        v = 0.08f * noise(n0 + i) * sinf(PI * t / dur) + 0.12f * env(t, 0.001f, 0.015f) * sinf(2.f * PI * 2600.f * t);
+        v = 0.08f * noise(n0 + i) * sinf(PI * t / dur) + 0.12f * env(t, 0.001f, 0.015f) * wave(2600.f * t);
         break;
       case Sound::HM:  // curious "hm?": a hum that rises like a question
         v = kVoiceGain * syllable(t, dur, kM, kM, 210.f, 330.f, true);
