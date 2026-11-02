@@ -58,6 +58,7 @@ BEZEL_SCREW_ANG = [90, 210, 330]
 TUBE_BACK = -(NUT_DEPTH + 0.05)      # w of the bracket front face
 SOCKET_R = 34.5
 FIT = 0.25
+LIP_FIT = 0.6          # back plate lip: printed parts need more room than the bezel
 
 SEG = 96
 Y_AXIS = 39.0           # set by build()
@@ -402,16 +403,18 @@ def build():
 
     # ---- back plate (flat, prints face down)
     plate = outer ^ box(-big, big, y_back - 2.4, y_back, 0, big)
-    open_sec = (body ^ box(-big, big, y_back, y_back + 0.3, -big, big))
-    hole_region = (outer ^ box(-big, big, y_back, y_back + 0.3, 0, big)) - open_sec
-    # lip: follow the opening, 0.25 mm clearance, 1.8 mm wide, 3 mm deep
-    hole_cs = hole_region.rotate([90, 0, 0]).slice(y_back + 0.15)   # +90 about x: z' = y
-    hole_cs = max(hole_cs.decompose(), key=lambda c: c.area())      # drop slivers / screw holes
-    lip_cs = hole_cs.offset(-FIT, JoinType.Round) - hole_cs.offset(-FIT - 1.8, JoinType.Round)
+    # lip: follow the opening where it is narrowest over the lip's 3 mm, 1.8 mm wide, LIP_FIT clear of the
+    # walls and the screw bosses (0.25 mm was too tight for a printed plate to go in)
+    inner_back = (outer - body) ^ box(-big, big, y_back, y_back + 3.2, 0, big)
+    hole_cs = None
+    for dy in (0.15, 1.0, 2.0, 3.0):
+        cs = inner_back.rotate([90, 0, 0]).slice(y_back + dy)       # +90 about x: z' = y
+        cs = max(cs.decompose(), key=lambda c: c.area())            # drop slivers / screw holes
+        hole_cs = cs if hole_cs is None else hole_cs ^ cs
+    lip_cs = hole_cs.offset(-LIP_FIT, JoinType.Round) - hole_cs.offset(-LIP_FIT - 1.8, JoinType.Round)
     lip = lip_cs.extrude(3.0).translate([0, 0, y_back]).rotate([-90, 0, 0])
-    # keep the lip clear of the screw bosses
-    plate = plate + (lip - fixings.translate([0, 0, 0]) - Manifold.batch_boolean(
-        [cyl_y(5.2, y_back - 1, y_back + 9, x=x, z=z) for x, z in screws], OpType.Add))
+    plate = plate + (lip - Manifold.batch_boolean(
+        [cyl_y(5.2 + LIP_FIT, y_back - 1, y_back + 9, x=x, z=z) for x, z in screws], OpType.Add))
     for x, z in screws:
         plate = plate - cyl_y(1.15, y_back - 5, y_back + 5, x=x, z=z, seg=24)
         plate = plate - cyl_y(2.2, y_back - 5, y_back - 1.2, x=x, z=z, seg=32)  # head recess
