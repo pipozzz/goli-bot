@@ -44,7 +44,7 @@ def screen():
     u = np.array([1, 0, 0])
     w = np.array([0, math.cos(t), math.sin(t)])
     vv = np.array([0, -math.sin(t), math.cos(t)])
-    o = np.array([0, goli_bot.Y_AXIS, goli_bot.FACE_Z]) - 0.02 * w
+    o = np.array([0, goli_bot.Y_AXIS, goli_bot.face_z()]) - 0.02 * w
     r = goli_bot.VA_R + 0.6
     n = 96
     pts, uvs = [o], [[0.5, 0.5]]

@@ -2,6 +2,7 @@
 stl/goli_body_multicolor.3mf, the body, belly and accents as one object with three filaments (AMS lite),
 and stl/goli_body_single.3mf, the body alone in one filament (much faster; paint the details after).
 Both have the back plate on a second plate, in the body's blue.
+With --mini: the same two from stl/mini (Goli at 90 %, after python3 goli_bot.py --mini).
 
 Uses Bambu Studio's own command line, so the project opens exactly like one saved from the app.
 Run after goli_bot.py:  python3 make_3mf.py   (BAMBU_STUDIO=/path/to/BambuStudio to override)
@@ -19,10 +20,10 @@ PROFILES = os.path.join(os.path.dirname(os.path.dirname(STUDIO)), "Resources", "
 MACHINE = "Bambu Lab A1 mini 0.4 nozzle"
 PROCESS = "0.20mm Standard @BBL A1M"
 FILAMENT = "Bambu PLA Basic @BBL A1M"
-PARTS = [  # file, colour (Goli's palette)
-    ("goli_body_blue.stl", "#6C7AE0"),
-    ("goli_belly_cream.stl", "#F3E9D2"),
-    ("goli_accents_red.stl", "#E5484D"),
+PARTS = [  # file (after the prefix), colour (Goli's palette)
+    ("body_blue.stl", "#6C7AE0"),
+    ("belly_cream.stl", "#F3E9D2"),
+    ("accents_red.stl", "#E5484D"),
 ]
 # The print settings from the README: 3 walls, 15 % gyroid, normal (grid) supports everywhere. The arms
 # start as islands beside the body at 2 cm and a tree's thin tip let them go into the air; inside, the
@@ -61,13 +62,13 @@ def resolve(kind, name):
     return out
 
 
-BACK_PLATE = "goli_backplate_blue.stl"  # flat, already lying face down; filament 1 (the body's blue)
+BACK_PLATE = "backplate_blue.stl"  # flat, already lying face down; filament 1 (the body's blue)
 
 
-def build(name, parts):
+def build(name, parts, folder="stl", prefix="goli_"):
     """One Bambu Studio project in stl/: plate 1 the body from STL parts [(file, colour)] as one object,
     one filament per part; plate 2 the back plate."""
-    out = os.path.join(HERE, "stl", name)
+    out = os.path.join(HERE, folder, prefix + name)
     with tempfile.TemporaryDirectory() as tmp:
         process = resolve("process", PROCESS)
         process.update(PROCESS_OVERRIDES)
@@ -84,10 +85,10 @@ def build(name, parts):
         # The same assemble_index merges the parts into one object (they stay registered)
         plates = {"plates": [
             {"plate_name": "Body", "need_arrange": True, "objects": [
-                {"path": os.path.join(HERE, "stl", f), "count": 1, "filaments": [i + 1], "assemble_index": [1]}
+                {"path": os.path.join(HERE, folder, prefix + f), "count": 1, "filaments": [i + 1], "assemble_index": [1]}
                 for i, (f, _) in enumerate(parts)]},
             {"plate_name": "Back plate", "need_arrange": True, "objects": [
-                {"path": os.path.join(HERE, "stl", BACK_PLATE), "count": 1, "filaments": [1], "assemble_index": [2]}]},
+                {"path": os.path.join(HERE, folder, prefix + BACK_PLATE), "count": 1, "filaments": [1], "assemble_index": [2]}]},
         ]}
         plates_path = os.path.join(tmp, "plates.json")
         with open(plates_path, "w") as fh:
@@ -106,8 +107,9 @@ def build(name, parts):
 def main():
     if not os.path.exists(STUDIO):
         sys.exit(f"Bambu Studio not found at {STUDIO}; set BAMBU_STUDIO")
-    build("goli_body_multicolor.3mf", PARTS)  # AMS lite: about 17 h (280 filament changes)
-    build("goli_body_single.3mf", PARTS[:1])  # one filament: about 7 h; paint the belly and cheeks after
+    where = ("stl/mini", "goli_mini_") if "--mini" in sys.argv else ("stl", "goli_")
+    build("body_multicolor.3mf", PARTS, *where)  # AMS lite (many filament changes)
+    build("body_single.3mf", PARTS[:1], *where)  # one filament; paint the belly and cheeks after
 
 
 if __name__ == "__main__":

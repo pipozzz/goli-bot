@@ -6,10 +6,12 @@ M2 nuts (H3.5) soldered on the back at (0,20.5) and (±13.75,-14.7); the nut
 tops sit 10.4 mm behind the glass front.
 
 Run:  python goli_bot.py && python make_viewer.py   -> STLs in ./stl, viewer.html
+      python goli_bot.py --mini                        -> Goli at 90 %, STLs in ./stl/mini
 Units: mm.  x = right, y = toward the viewer (front), z = up.
 """
 import math
 import os
+import sys
 
 import numpy as np
 import trimesh
@@ -20,7 +22,8 @@ from manifold3d import CrossSection, JoinType, Manifold, Mesh, OpType
 OUT = os.path.dirname(os.path.abspath(__file__))
 
 # ---------------------------------------------------------------- parameters
-S = 0.32                # mm per unit of the Goli SVG artwork
+FULL_S = 0.32
+S = FULL_S              # mm per unit of the Goli SVG artwork (--mini: 90 %; the display stays the same)
 SY_BED = 548            # SVG y of the print bed (egg bottom is 568)
 K = 0.80                # body depth / width
 N_SE = 2.6              # superellipse exponent of the horizontal section
@@ -189,13 +192,14 @@ def emboss(cs, h, base=0.0):
 
 
 # ---------------------------------------------------------------- face frame
-FACE_Z = svg_z(FACE_SY)
+def face_z():  # height of the face centre (follows S, for --mini)
+    return svg_z(FACE_SY)
 
 
 def face_frame(y_axis):
     """Transform local (u right, w forward, v up) -> world for the tilted face."""
     def place(m):
-        return m.rotate([FACE_TILT, 0, 0]).translate([0, y_axis, FACE_Z])
+        return m.rotate([FACE_TILT, 0, 0]).translate([0, y_axis, face_z()])
     return place
 
 
@@ -219,7 +223,7 @@ def solve_face_axis():
     uv = np.array([1, 0, 0])
     w_front = LIP_T - FLANGE_T  # socket front plane (= flange back), local w
     for y_axis in np.linspace(0, 50, 501):
-        o = np.array([0, y_axis, FACE_Z])
+        o = np.array([0, y_axis, face_z()])
         worst = 1e9
         for ang in np.linspace(0, 2 * np.pi, 48, endpoint=False):
             p = o + w_front * wv + SOCKET_R * (math.cos(ang) * uv + math.sin(ang) * vv)
@@ -278,17 +282,18 @@ def build():
     bore_cs = (bore_cs ^ CrossSection.circle(FLANGE_R - 0.4, SEG)) + CrossSection.circle(TUBE_R + FIT, SEG)  # hidden by the flange
     bore = place(_extrude_y(bore_cs, TUBE_BACK - 20, 60))
 
-    # ---- details on the body
+    # ---- details on the body (sized with the body: f = 1 for the full-size Goli)
+    f = S / FULL_S
     ears = []
     for sgn in (-1, 1):
-        base = Manifold.sphere(6.8, 48).scale([1, 0.8, 1]).translate([sgn * 21.5, 0, z_top - 11])
-        tip = Manifold.sphere(2.3, 32).translate([sgn * 30.5, 0, z_top + 4])
+        base = Manifold.sphere(6.8 * f, 48).scale([1, 0.8, 1]).translate([sgn * 21.5 * f, 0, z_top - 11 * f])
+        tip = Manifold.sphere(2.3 * f, 32).translate([sgn * 30.5 * f, 0, z_top + 4 * f])
         ears.append(Manifold.batch_hull([base, tip]))
     arms = []
     z_arm = svg_z(430)
     for sgn in (-1, 1):
         x = sgn * (surface_r(z_arm) - 3.0)
-        arm = Manifold.sphere(1.0, 64).scale([8.5, 9.5, 19]).rotate([0, sgn * -22, 0]).translate([x, 6, z_arm])
+        arm = Manifold.sphere(1.0, 64).scale([8.5 * f, 9.5 * f, 19 * f]).rotate([0, sgn * -22, 0]).translate([x, 6 * f, z_arm])
         arms.append(arm)
     feet, toes = [], []
     for sgn in (-1, 1):
@@ -301,9 +306,9 @@ def build():
             toes.append(box(cx + dx - 0.55, cx + dx + 0.55, yc + ry * 0.4, yc + 40, 1.4, 5.2) ^ skin)
 
     # antenna stalk + bell peg (prints with the body)
-    stalk_len, peg_len = 16.0, 6.0
+    stalk_len, peg_len = 16.0 * f, 6.0
     stalk = Manifold.cylinder(stalk_len + 5, 2.6, 2.4, 48).translate([0, 0, -5])
-    stalk += Manifold.sphere(3.4, 48).translate([0, 0, stalk_len])  # clapper knob
+    stalk += Manifold.sphere(3.4 * f, 48).translate([0, 0, stalk_len])  # clapper knob
     stalk += Manifold.cylinder(peg_len + 3.4, 2.0, 2.0, 48).translate([0, 0, stalk_len])
     stalk = stalk.rotate([0, 14, 0]).translate([0, 0, z_top - 1.5])
 
@@ -342,7 +347,7 @@ def build():
     badge = badge - bang_cut
     cheeks = []
     for sgn in (-1, 1):
-        cheeks.append(emboss(ellipse_cs(sgn * 38.0, svg_z(362), 5.6, 3.0), 0.8))
+        cheeks.append(emboss(ellipse_cs(sgn * 38.0 * f, svg_z(362), 5.6 * f, 3.0 * f), 0.8))
     cheeks = Manifold.batch_boolean(cheeks, OpType.Add)
 
     # ---- back-plate fixings: two floor pillars + a top boss under the roof
@@ -495,9 +500,13 @@ def to_trimesh(m):
 
 
 if __name__ == "__main__":
+    out_dir, prefix = os.path.join(OUT, "stl"), "goli_"
+    if "--mini" in sys.argv:  # 90 %: smaller body around the same display, an 803040 LiPo (40 x 30 x 8 mm)
+        S, BATTERY = 0.9 * FULL_S, (40.0, 30.0, 8.0)
+        out_dir, prefix = os.path.join(OUT, "stl", "mini"), "goli_mini_"
     assembled, poses, info = build()
     print(info)
-    os.makedirs(os.path.join(OUT, "stl"), exist_ok=True)
+    os.makedirs(out_dir, exist_ok=True)
     for name, m in assembled.items():
         tm = to_trimesh(m)
         print(f"{name:16s} tris={len(tm.faces):7d} watertight={tm.is_watertight} vol={tm.volume / 1000:6.1f} cm3 "
@@ -511,7 +520,7 @@ if __name__ == "__main__":
             tm.apply_translation(body_shift)
         else:
             tm.apply_translation([-tm.bounds[0][0] - tm.extents[0] / 2, -tm.bounds[0][1] - tm.extents[1] / 2, -tm.bounds[0][2]])
-        tm.export(os.path.join(OUT, "stl", f"goli_{name}.stl"))
-    os.makedirs(os.path.join(OUT, "stl", "assembly"), exist_ok=True)
+        tm.export(os.path.join(out_dir, f"{prefix}{name}.stl"))
+    os.makedirs(os.path.join(out_dir, "assembly"), exist_ok=True)
     for name, m in assembled.items():
-        to_trimesh(m).export(os.path.join(OUT, "stl", "assembly", f"{name}.stl"))
+        to_trimesh(m).export(os.path.join(out_dir, "assembly", f"{name}.stl"))

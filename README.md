@@ -22,6 +22,13 @@ and test-fit them on the display before you print the body.
 
 About 108 × 65 × 150 mm with the bell on. Every part fits the Bambu Lab A1 mini (180 mm³).
 
+**Goli mini** is the same robot at 90 %: about 97 × 58 × 135 mm with the bell on (body 109 × 58 × 130 mm
+with the arms). The display is the same, so his face is a little bigger for his size. Its files are in
+[`stl/mini/`](stl/mini), named `goli_mini_*` (the bezel, bracket and mug are identical to the full-size ones).
+It needs a smaller battery: a **803040** LiPo (40 × 30 × 8 mm, about 1000 mAh) instead of the 103450.
+The body prints in about 6 h 45 min in one colour (108 g) or 14 h 40 min with the AMS, and the back
+plate in 52 min.
+
 ## Parts to buy
 
 | Part | Notes |
@@ -32,7 +39,7 @@ About 108 × 65 × 150 mm with the bell on. Every part fits the Bambu Lab A1 min
 | 3× M2×6 self-tapping screws | Bracket → bezel |
 | 3× M2×8 self-tapping screws | Back plate → body |
 | USB-C cable | Goes through the slot in the back plate. A right-angle plug fits best. |
-| Optional: 3.7 V LiPo, 1000 mAh, size **103450** (50 × 34 × 10 mm), MX1.25 plug | Lies on a cradle in the base (three rails and stops, printed with the body); a strip of double-sided tape holds it. The board's power button is inside the body, so plan for USB power or leave the board on. On battery the screen goes dark after he has slept for 30 min; touch or move him to wake him. |
+| Optional: 3.7 V LiPo, 1000 mAh, size **103450** (50 × 34 × 10 mm), MX1.25 plug (Goli mini: **803040**, 40 × 30 × 8 mm) | Lies on a cradle in the base (three rails and stops, printed with the body); a strip of double-sided tape holds it. The board's power button is inside the body, so plan for USB power or leave the board on. On battery the screen goes dark after he has slept for 30 min; touch or move him to wake him. |
 
 ## Print
 
@@ -89,7 +96,7 @@ edges): **ivory** or **beige** for the belly and card, **red** for the badge and
 A slip of the marker comes off with a cotton bud dipped in water while the paint is wet, or with a
 fingernail once it's dry.
 
-To rebuild the 3MF files after changing the model, run `python3 make_3mf.py`. It uses Bambu Studio's command line,
+To rebuild the 3MF files after changing the model, run `python3 make_3mf.py` (and `python3 make_3mf.py --mini`). It uses Bambu Studio's command line,
 so Bambu Studio must be installed.
 
 ## Assembly
@@ -492,6 +499,7 @@ display's dimensions are constants at the top of the file.
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python goli_bot.py      # writes stl/ (print-oriented) and stl/assembly/ (assembled positions)
+.venv/bin/python goli_bot.py --mini  # Goli mini: stl/mini/
 .venv/bin/python make_viewer.py   # rebuilds viewer.html
 ```
 
