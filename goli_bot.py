@@ -429,7 +429,7 @@ def build():
     lip_ring = local_cyl(FLANGE_R, -0.0, LIP_T) - local_cyl(LIP_R, -1, LIP_T + 1)
     # soft chamfer on the front outer edge
     lip_ring = lip_ring ^ local_cyl(FLANGE_R + 1.2, -10, LIP_T + 0.01, r2=FLANGE_R - 0.6)
-    flange = local_cyl(FLANGE_R, w_socket_front, 0.01) - local_cyl(BORE_R, -1, 1)
+    flange = local_cyl(FLANGE_R, w_socket_front, 0.01) - local_cyl(BORE_R, w_socket_front - 1, 1)  # all the way through
     tube = local_cyl(TUBE_R, TUBE_BACK, w_socket_front + 0.01) - local_cyl(BORE_R, TUBE_BACK - 1, 1)
     bezel = lip_ring + flange + tube
     for a in BEZEL_SCREW_ANG:
