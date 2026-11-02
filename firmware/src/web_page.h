@@ -147,7 +147,8 @@ code{background:var(--bg);padding:1px 5px;border-radius:5px;word-break:break-all
 <small>Anything can ring him through the broker: publish to <code id="mqttTopic"></code> a title, or JSON like the webhooks take.</small></div>
 <div class="card"><h2>Language</h2><label>What Goli says on his face<select data-k="lang"><option value="en">English</option><option value="sk">Slovensky</option><option value="cs">Cesky</option><option value="de">Deutsch</option></select></label></div>
 <div class="card"><h2>Night</h2><label class="check"><input type="checkbox" data-k="night">Screen off while he sleeps in quiet hours (a touch wakes him)</label></div>
-<div class="card"><h2>Updates</h2><label class="check"><input type="checkbox" data-k="ota">Install new versions by himself (once a day)</label><p class="sub" id="ver"></p></div>
+<div class="card"><h2>Updates</h2><label class="check"><input type="checkbox" data-k="ota">Install new versions by himself (once a day)</label><p class="sub" id="ver"></p><p class="sub" id="upState"></p>
+<p><button class="b ghost" onclick="act('update_check')">Check now</button> <button class="b" id="upBtn" hidden onclick="if(confirm('Install '+state.update.latest+'? Goli restarts.'))act('update_install')">Update now</button></p></div>
 <div class="card"><h2>Firmware</h2><p class="sub">Install a build by hand: <code>goli-app.bin</code> from a release, or your own <code>.pio/build/goli/firmware.bin</code>.</p>
 <input type="file" id="fw" accept=".bin"><p><button class="b ghost" onclick="uploadFirmware()">Install</button> <span id="fwState" class="sub"></span></p></div>
 <div class="card"><h2>Backup</h2><p class="sub">Every setting and reminder, secrets included, in one file: keep it safe.</p>
@@ -191,6 +192,9 @@ async function refresh(){try{state=await api('/api/state')}catch(e){return}
  $('#state').innerHTML=Object.entries(kv).map(([k,v])=>`<b>${k}</b><span>${v}</span>`).join('');
  const col={critical:'var(--red)',good:'var(--green)',info:'var(--accent)'};
  $('#log').innerHTML=state.log.length?state.log.map(l=>`<div><span class="dot" style="background:${col[l.level]}"></span><span>${ago(l.at)} ${esc(l.title)}</span></div>`).join(''):'<div>Nothing yet.</div>';
+ const up=state.update||{},newer=up.latest&&up.latest!=state.version;
+ $('#upState').textContent=up.latest?`Latest: ${up.latest} (checked ${Math.round(up.checked_s/60)} min ago)${up.state&&up.state!='new version'&&up.state!='up to date'?' · '+up.state:newer?'':' · up to date'}`:(up.state&&up.state!='idle'?up.state:'Not checked yet.');
+ $('#upBtn').hidden=!newer;$('#upBtn').textContent='Update to '+(up.latest||'');
  $('#meetings').innerHTML=state.meetings.length?state.meetings.map(m=>`<div><span>${ago(m.start)} ${esc(m.title)}</span></div>`).join(''):'<div>Nothing more today.</div>'}
 function drawHours(h){const max=Math.max(1,...h),now=new Date().getHours();
  $('#hours').innerHTML=h.map((v,i)=>`<rect x="${i*10+1}" y="${48-v/max*44}" width="8" height="${Math.max(v?2:0,v/max*44)}" rx="2" fill="${i==now?'var(--accent)':'var(--muted)'}"><title>${i}:00 ${v}</title></rect>`).join('')+

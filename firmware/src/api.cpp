@@ -389,6 +389,11 @@ void getState() {
   d["down"] = watch::down();
   d["mqtt"] = mqtt::status();
   d["ntfy"] = ntfy::status();
+  const ota::Info up = ota::info();
+  JsonObject u = d["update"].to<JsonObject>();
+  u["latest"] = up.latest;
+  u["checked_s"] = up.checked_s;
+  u["state"] = up.state;
   d["ram"] = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
   d["ram_block"] = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
   bot::State st;
@@ -455,6 +460,8 @@ void action() {
   else if (!strcmp(what, "setup")) ask(Command::SETUP);
   else if (!strcmp(what, "timer")) ask(Command::TIMER, constrain(in["minutes"] | 0, 0, 600));
   else if (!strcmp(what, "quiet")) ask(Command::QUIET, (in["on"] | false) ? 1 : 0);
+  else if (!strcmp(what, "update_check")) ota::request(false);
+  else if (!strcmp(what, "update_install")) ota::request(true);
   else if (!strcmp(what, "restart")) {
     reply(200, "restarting");
     delay(300);

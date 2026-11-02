@@ -250,6 +250,8 @@ Once Goli is on your Wi-Fi he updates himself: a few minutes after starting and 
 myself...* and restarts. The download only comes from a server with a trusted certificate (the roots are in
 `src/tls_roots.h`), and the ESP32 checks the image before it boots it. Turn it off on the web page.
 Builds you make yourself are versioned `dev` and never update themselves.
+To not wait for the daily check, open *Updates* on his web page: **Check now** shows the latest release,
+and **Update to vX** installs it right away (also on a `dev` build, or with the daily updates off).
 
 Safari and phones can't flash (no Web Serial). Every release also has `goli-firmware.bin`, a merged image for
 offset 0x0: `esptool.py --chip esp32s3 write_flash 0x0 goli-firmware.bin`.

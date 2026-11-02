@@ -228,6 +228,7 @@ void task(void *) {
     if (due(next_watch, 60000UL)) watch::poll();
     if (due(next_hello, 60000UL)) team::hello();
     if (forced) refresh = false;
+    ota::serveRequest();  // "check now" / "update now" on the web page
     if (int32_t(millis() - next_ota) >= 0) {
       const bool ok = ota::check();  // restarts Goli when it installs an update
       next_ota = millis() + (ok ? OTA_EVERY_H * 3600000UL : 3600000UL);
