@@ -91,7 +91,9 @@ void handleRpc(const uint8_t *d, size_t n) {
     }
     case CMD_STATE:
       sendError(ERR_NONE);
-      if (provisioned || (settings::hasWifi() && online())) sendProvisioned(CMD_STATE);
+      // Saved Wi-Fi counts even before he is back on it: right after a flash the installer asks while
+      // he is still starting, and "ready" made it offer the whole Wi-Fi setup again
+      if (provisioned || settings::hasWifi()) sendProvisioned(CMD_STATE);
       else sendState(STATE_READY);
       return;
     case CMD_INFO:

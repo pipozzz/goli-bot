@@ -470,7 +470,7 @@ void setup() {
   api::begin();                     // before Wi-Fi starts: sets the hostname
   goliash::begin();
 
-  improv::begin(nullptr, nullptr);  // the web installer can change the Wi-Fi
+  improv::begin([]() -> String { return String("http://") + api::hostname() + ".local/"; }, nullptr);  // the web installer can change the Wi-Fi
   Serial.printf("Goli %s is up. Furt dačo!\n", GOLI_VERSION);
 }
 
