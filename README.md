@@ -15,8 +15,8 @@ His whole face is a round AMOLED with an ESP32-S3 behind it, so the eyes, brows 
 
 **[Try him in your browser](https://pipozzz.github.io/goli-bot/sim/)** · **[Install the firmware from your browser](https://pipozzz.github.io/goli-bot/)** · **[3D viewer](https://pipozzz.github.io/goli-bot/viewer.html)** (also `viewer.html` here, with an exploded-assembly slider)
 
-**Status:** designed and checked in CAD, **not printed yet**. Print the bezel and bracket first (about 20 min)
-and test-fit them on the display before you print the body.
+**Status:** designed and checked in CAD, first prints under way. Print the bezel and bracket first (plate 3 of
+either 3MF, about 1 h) and test-fit them on the display before you print the body.
 
 ## Size
 
@@ -45,12 +45,12 @@ plate in 52 min.
 
 | File | Colour | Orientation | Notes |
 |---|---|---|---|
-| `goli_body_single.3mf`, or `goli_body_blue.stl` alone | blue | upright, as exported | The quick way: about 8 h, paint the details after. Normal (grid) supports, also inside. Plate 2: the back plate. |
-| `goli_body_multicolor.3mf` (`goli_body_blue.stl` + `goli_belly_cream.stl` + `goli_accents_red.stl`) | blue / cream / red | upright, as exported | One multi-colour object for the AMS lite, about 18 h. Plate 2: the back plate. |
-| `goli_bezel_navy.stl` | navy | face down | No supports. |
+| `goli_body_single.3mf`, or `goli_body_blue.stl` alone | blue | upright, as exported | The quick way: about 8 h, paint the details after. Normal (grid) supports, also inside. Plates 2–4: the other parts (below). |
+| `goli_body_multicolor.3mf` (`goli_body_blue.stl` + `goli_belly_cream.stl` + `goli_accents_red.stl`) | blue / cream / red | upright, as exported | One multi-colour object for the AMS lite, about 18 h. Plates 2–4: the other parts (below). |
+| `goli_bezel_navy.stl` | navy | face down | No supports. With the bracket on plate 3 of both 3MF files (57 min, 15 g). |
 | `goli_bracket_any.stl` | any | as exported | No supports. |
-| `goli_backplate_blue.stl` | blue | outer face down | No supports; about 1 h. Already plate 2 of both 3MF files. |
-| `goli_bell_yellow.stl` | yellow | lip down | No supports. |
+| `goli_backplate_blue.stl` | blue | outer face down | No supports; about 1 h. Plate 2 of both 3MF files. |
+| `goli_bell_yellow.stl` | yellow | lip down | No supports. With the mug on plate 4 of both 3MF files, at 0.12 mm (29 min). |
 | `goli_mug_white.stl` | white | upright | Optional prop: "coffee #4". |
 
 PLA, 0.2 mm layers (0.12 mm for the bell and mug), 3 walls, 15 % gyroid.
@@ -63,14 +63,17 @@ undersides. The inner supports come out through the open back.
 **The quick way (one colour, about 8 h):** open **`stl/goli_body_single.3mf`** in Bambu Studio and print it
 in blue PLA (0.20 mm, 3 walls, 15 % gyroid, normal supports; 130 g). Then paint the belly,
 card, badge and cheeks (see *Painting* below). The back plate is on the project's second plate (about
-1 h, 23 g): print it after the body, the same blue, no supports. The multi-colour print below takes 18 h, and 10 of those
+1 h, 23 g): print it after the body, the same blue, no supports. Plate 3 has the face bezel and the display bracket
+(navy, about 1 h), plate 4 the bell and the mug (yellow and white, 0.12 mm layers, about 30 min); load that
+filament before you print the plate. The multi-colour print below takes 18 h, and 10 of those
 hours are the AMS lite changing filament about 280 times.
 
 **Multi-colour body (AMS lite):** open **`stl/goli_body_multicolor.3mf`** in Bambu Studio. It is one object
 with three parts already on filaments 1–3 (blue, cream, red), set up for the A1 mini with 0.20 mm layers,
 3 walls, 15 % gyroid and normal supports. Map the three filaments to your AMS slots and print:
 about 18 h and 163 / 58 / 13 g of blue / cream / red PLA, purging included. Plate 2 is the back plate in
-blue (filament 1), about 1 h.
+blue (filament 1), about 1 h; plate 3 the bezel and bracket (navy, filament 4), plate 4 the bell and mug
+(yellow and white, filaments 5 and 6).
 With a single colour, use the quick way above.
 
 ### Painting

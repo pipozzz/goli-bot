@@ -1,7 +1,8 @@
 """Builds the body's Bambu Studio projects for the A1 mini (open one in Bambu Studio and print):
 stl/goli_body_multicolor.3mf, the body, belly and accents as one object with three filaments (AMS lite),
 and stl/goli_body_single.3mf, the body alone in one filament (much faster; paint the details after).
-Both have the back plate on a second plate, in the body's blue.
+Both also hold the other parts: plate 2 the back plate (the body's blue), plate 3 the face bezel and the
+display bracket (navy), plate 4 the bell (yellow) and the mug (white).
 With --mini: the same two from stl/mini (Goli at 90 %, after python3 goli_bot.py --mini).
 
 Uses Bambu Studio's own command line, so the project opens exactly like one saved from the app.
@@ -9,9 +10,11 @@ Run after goli_bot.py:  python3 make_3mf.py   (BAMBU_STUDIO=/path/to/BambuStudio
 """
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
+import zipfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 STUDIO = os.environ.get("BAMBU_STUDIO", "/Applications/BambuStudio.app/Contents/MacOS/BambuStudio")
@@ -63,12 +66,45 @@ def resolve(kind, name):
 
 
 BACK_PLATE = "backplate_blue.stl"  # flat, already lying face down; filament 1 (the body's blue)
+# The small parts, each lying as it prints, on plates of their own: (plate, [(file, colour)]). They need
+# no supports; the bell and mug come out better at 0.12 mm.
+SMALL_PLATES = [
+    ("Face bezel and bracket", [("bezel_navy.stl", "#2B2D42"), ("bracket_any.stl", "#2B2D42")], {}),
+    ("Bell and mug", [("bell_yellow.stl", "#F2B84B"), ("mug_white.stl", "#FAFAFA")], {"layer_height": "0.12"}),
+]
+
+
+def lift_object_settings(path):
+    """The command line files print_params under each part, where Bambu Studio ignores supports and layer
+    height: move them up to their object."""
+    with zipfile.ZipFile(path) as z:
+        files = {i: z.read(i) for i in z.namelist()}
+        infos = z.infolist()
+    cfg = files["Metadata/model_settings.config"].decode()
+    keys = "enable_support|layer_height"
+
+    def fix(m):
+        obj = m.group(0)
+        found = dict(re.findall(rf'<metadata key="({keys})" value="([^"]*)"/>', obj))
+        obj = re.sub(rf'\n\s*<metadata key="(?:{keys})" value="[^"]*"/>', "", obj)
+        lines = "".join(f'\n    <metadata key="{k}" value="{v}"/>' for k, v in found.items())
+        return re.sub(r'(<metadata key="name" value="[^"]*"/>)', lambda n: n.group(1) + lines, obj, count=1)
+
+    files["Metadata/model_settings.config"] = re.sub(r"<object .*?</object>", fix, cfg, flags=re.S).encode()
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+        for info in infos:
+            z.writestr(info, files[info.filename])
 
 
 def build(name, parts, folder="stl", prefix="goli_"):
-    """One Bambu Studio project in stl/: plate 1 the body from STL parts [(file, colour)] as one object,
-    one filament per part; plate 2 the back plate."""
+    """One Bambu Studio project: plate 1 the body from STL parts [(file, colour)] as one object, one
+    filament per part; plate 2 the back plate; then SMALL_PLATES, on filaments after the body's."""
     out = os.path.join(HERE, folder, prefix + name)
+    colours = [c for _, c in parts]
+    for _, small, _ in SMALL_PLATES:
+        for _, c in small:
+            if c not in colours:
+                colours.append(c)
     with tempfile.TemporaryDirectory() as tmp:
         process = resolve("process", PROCESS)
         process.update(PROCESS_OVERRIDES)
@@ -76,7 +112,7 @@ def build(name, parts, folder="stl", prefix="goli_"):
         with open(process_path, "w") as fh:
             json.dump(process, fh)
         filaments = []
-        for i, (_, colour) in enumerate(parts):
+        for i, colour in enumerate(colours):
             f = resolve("filament", FILAMENT)
             f["filament_colour"] = [colour]
             filaments.append(os.path.join(tmp, f"filament{i}.json"))
@@ -88,8 +124,18 @@ def build(name, parts, folder="stl", prefix="goli_"):
                 {"path": os.path.join(HERE, folder, prefix + f), "count": 1, "filaments": [i + 1], "assemble_index": [1]}
                 for i, (f, _) in enumerate(parts)]},
             {"plate_name": "Back plate", "need_arrange": True, "objects": [
-                {"path": os.path.join(HERE, folder, prefix + BACK_PLATE), "count": 1, "filaments": [1], "assemble_index": [2]}]},
+                {"path": os.path.join(HERE, folder, prefix + BACK_PLATE), "count": 1, "filaments": [1], "assemble_index": [2],
+                 "print_params": {"enable_support": "0"}}]},
         ]}
+        index = 3
+        for plate_name, small, params in SMALL_PLATES:
+            objects = []
+            for f, colour in small:
+                objects.append({"path": os.path.join(HERE, folder, prefix + f), "count": 1,
+                                "filaments": [colours.index(colour) + 1], "assemble_index": [index],
+                                "print_params": {"enable_support": "0", **params}})
+                index += 1
+            plates["plates"].append({"plate_name": plate_name, "need_arrange": True, "objects": objects})
         plates_path = os.path.join(tmp, "plates.json")
         with open(plates_path, "w") as fh:
             json.dump(plates, fh)
@@ -101,6 +147,7 @@ def build(name, parts, folder="stl", prefix="goli_"):
         r = subprocess.run(cmd, capture_output=True, text=True)
         if r.returncode or not os.path.exists(out):
             sys.exit(f"Bambu Studio failed ({r.returncode}):\n{r.stdout[-2000:]}{r.stderr[-2000:]}")
+    lift_object_settings(out)
     print("wrote", os.path.relpath(out, HERE))
 
 
