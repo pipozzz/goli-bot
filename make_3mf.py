@@ -24,14 +24,16 @@ PARTS = [  # file, colour (Goli's palette)
     ("goli_belly_cream.stl", "#F3E9D2"),
     ("goli_accents_red.stl", "#E5484D"),
 ]
-# The print settings from the README: 3 walls, 15 % gyroid, tree supports from the plate (arm undersides)
+# The print settings from the README: 3 walls, 15 % gyroid, normal (grid) supports everywhere. The arms
+# start as islands beside the body at 2 cm and a tree's thin tip let them go into the air; inside, the
+# ceiling by the face needs support too (it comes out through the open back).
 PROCESS_OVERRIDES = {
     "wall_loops": "3",
     "sparse_infill_density": "15%",
     "sparse_infill_pattern": "gyroid",
     "enable_support": "1",
-    "support_type": "tree(auto)",
-    "support_on_build_plate_only": "1",
+    "support_type": "normal(auto)",
+    "support_on_build_plate_only": "0",
 }
 
 

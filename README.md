@@ -38,8 +38,8 @@ About 108 × 65 × 150 mm with the bell on. Every part fits the Bambu Lab A1 min
 
 | File | Colour | Orientation | Notes |
 |---|---|---|---|
-| `goli_body_single.3mf`, or `goli_body_blue.stl` alone | blue | upright, as exported | The quick way: about 7 h, paint the details after. Tree supports, build plate only, for the arm undersides. Plate 2: the back plate. |
-| `goli_body_multicolor.3mf` (`goli_body_blue.stl` + `goli_belly_cream.stl` + `goli_accents_red.stl`) | blue / cream / red | upright, as exported | One multi-colour object for the AMS lite, about 17 h. Plate 2: the back plate. |
+| `goli_body_single.3mf`, or `goli_body_blue.stl` alone | blue | upright, as exported | The quick way: about 8 h, paint the details after. Normal (grid) supports, also inside. Plate 2: the back plate. |
+| `goli_body_multicolor.3mf` (`goli_body_blue.stl` + `goli_belly_cream.stl` + `goli_accents_red.stl`) | blue / cream / red | upright, as exported | One multi-colour object for the AMS lite, about 18 h. Plate 2: the back plate. |
 | `goli_bezel_navy.stl` | navy | face down | No supports. |
 | `goli_bracket_any.stl` | any | as exported | No supports. |
 | `goli_backplate_blue.stl` | blue | outer face down | No supports; about 1 h. Already plate 2 of both 3MF files. |
@@ -48,19 +48,21 @@ About 108 × 65 × 150 mm with the bell on. Every part fits the Bambu Lab A1 min
 
 PLA, 0.2 mm layers (0.12 mm for the bell and mug), 3 walls, 15 % gyroid.
 
-The inside of the body is designed to print without supports: the roof is a 45° cone, and the face socket
-and screw bosses have 45° undersides.
+The body needs supports. The arms start as islands beside the body at about 2 cm, and the ceiling inside by
+the face is nearly flat. Use **normal** (grid) supports, not on the build plate only: a tree's thin tip
+let the arms' first layers go into the air. The roof, the face socket and the screw bosses inside have 45°
+undersides. The inner supports come out through the open back.
 
-**The quick way (one colour, about 7 h):** open **`stl/goli_body_single.3mf`** in Bambu Studio and print it
-in blue PLA (0.20 mm, 3 walls, 15 % gyroid, tree supports from the plate; 111 g). Then paint the belly,
+**The quick way (one colour, about 8 h):** open **`stl/goli_body_single.3mf`** in Bambu Studio and print it
+in blue PLA (0.20 mm, 3 walls, 15 % gyroid, normal supports; 130 g). Then paint the belly,
 card, badge and cheeks (see *Painting* below). The back plate is on the project's second plate (about
-1 h, 23 g): print it after the body, the same blue, no supports. The multi-colour print below takes 17 h, and 10 of those
+1 h, 23 g): print it after the body, the same blue, no supports. The multi-colour print below takes 18 h, and 10 of those
 hours are the AMS lite changing filament about 280 times.
 
 **Multi-colour body (AMS lite):** open **`stl/goli_body_multicolor.3mf`** in Bambu Studio. It is one object
 with three parts already on filaments 1–3 (blue, cream, red), set up for the A1 mini with 0.20 mm layers,
-3 walls, 15 % gyroid and tree supports from the plate. Map the three filaments to your AMS slots and print:
-about 17 h and 150 / 58 / 13 g of blue / cream / red PLA, purging included. Plate 2 is the back plate in
+3 walls, 15 % gyroid and normal supports. Map the three filaments to your AMS slots and print:
+about 18 h and 163 / 58 / 13 g of blue / cream / red PLA, purging included. Plate 2 is the back plate in
 blue (filament 1), about 1 h.
 With a single colour, use the quick way above.
 
