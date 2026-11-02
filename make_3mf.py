@@ -1,6 +1,7 @@
 """Builds the body's Bambu Studio projects for the A1 mini (open one in Bambu Studio and print):
 stl/goli_body_multicolor.3mf, the body, belly and accents as one object with three filaments (AMS lite),
 and stl/goli_body_single.3mf, the body alone in one filament (much faster; paint the details after).
+Both have the back plate on a second plate, in the body's blue.
 
 Uses Bambu Studio's own command line, so the project opens exactly like one saved from the app.
 Run after goli_bot.py:  python3 make_3mf.py   (BAMBU_STUDIO=/path/to/BambuStudio to override)
@@ -58,8 +59,12 @@ def resolve(kind, name):
     return out
 
 
+BACK_PLATE = "goli_backplate_blue.stl"  # flat, already lying face down; filament 1 (the body's blue)
+
+
 def build(name, parts):
-    """One Bambu Studio project in stl/ from STL parts [(file, colour)], one filament per part."""
+    """One Bambu Studio project in stl/: plate 1 the body from STL parts [(file, colour)] as one object,
+    one filament per part; plate 2 the back plate."""
     out = os.path.join(HERE, "stl", name)
     with tempfile.TemporaryDirectory() as tmp:
         process = resolve("process", PROCESS)
@@ -74,12 +79,22 @@ def build(name, parts):
             filaments.append(os.path.join(tmp, f"filament{i}.json"))
             with open(filaments[-1], "w") as fh:
                 json.dump(f, fh)
+        # The same assemble_index merges the parts into one object (they stay registered)
+        plates = {"plates": [
+            {"plate_name": "Body", "need_arrange": True, "objects": [
+                {"path": os.path.join(HERE, "stl", f), "count": 1, "filaments": [i + 1], "assemble_index": [1]}
+                for i, (f, _) in enumerate(parts)]},
+            {"plate_name": "Back plate", "need_arrange": True, "objects": [
+                {"path": os.path.join(HERE, "stl", BACK_PLATE), "count": 1, "filaments": [1], "assemble_index": [2]}]},
+        ]}
+        plates_path = os.path.join(tmp, "plates.json")
+        with open(plates_path, "w") as fh:
+            json.dump(plates, fh)
         machine = os.path.join(PROFILES, "machine", MACHINE + ".json")
-        cmd = [STUDIO, "--assemble", "--arrange", "1",  # one object: arranging keeps the parts registered
-               "--load-settings", f"{machine};{process_path}",
+        cmd = [STUDIO, "--load-settings", f"{machine};{process_path}",
                "--load-filaments", ";".join(filaments),
-               "--load-filament-ids", ",".join(str(i + 1) for i in range(len(parts))),
-               "--export-3mf", out] + [os.path.join(HERE, "stl", f) for f, _ in parts]
+               "--load-assemble-list", plates_path,
+               "--export-3mf", out]
         r = subprocess.run(cmd, capture_output=True, text=True)
         if r.returncode or not os.path.exists(out):
             sys.exit(f"Bambu Studio failed ({r.returncode}):\n{r.stdout[-2000:]}{r.stderr[-2000:]}")
